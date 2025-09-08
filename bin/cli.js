@@ -553,10 +553,28 @@ async function configureClaudeCode() {
   const failedServers = [];
 
   for (const spec of SERVER_SPECS) {
-    // Route to appropriate prompt handler and collect results
-    let serverConfig = null;
-
     try {
+      // Check if server already exists BEFORE prompting for new credentials
+      const exists = checkMcpServerExists(spec.key);
+
+      if (exists) {
+        const action = await handleExistingServer(spec, ask);
+
+        if (action === "skip") {
+          console.log(`  ⏭️  ${spec.title} kept existing configuration`);
+          skippedServers.push(spec.title);
+          continue;
+        } else if (action === "keep") {
+          console.log(`  ✅ ${spec.title} kept existing configuration`);
+          configuredServers.push(spec.title);
+          continue;
+        }
+        // If action === 'reinstall', continue with prompts and installation below
+      }
+
+      // Route to appropriate prompt handler and collect results
+      let serverConfig = null;
+
       if (spec.promptType === "path") {
         serverConfig = await promptPathServerForCommand(spec, ask);
       } else if (spec.promptType === "wrangler") {
@@ -568,23 +586,6 @@ async function configureClaudeCode() {
       }
 
       if (serverConfig && serverConfig.action === "configure") {
-        // Check if server already exists
-        const exists = checkMcpServerExists(spec.key);
-
-        if (exists) {
-          const action = await handleExistingServer(spec, ask);
-
-          if (action === "skip") {
-            console.log(`  ⏭️  ${spec.title} kept existing configuration`);
-            skippedServers.push(spec.title);
-            continue;
-          } else if (action === "keep") {
-            console.log(`  ✅ ${spec.title} kept existing configuration`);
-            configuredServers.push(spec.title);
-            continue;
-          }
-          // If action === 'reinstall', continue with installation below
-        }
 
         // Build and execute claude mcp add command
         const command = buildClaudeMcpCommand(
