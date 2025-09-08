@@ -1,0 +1,10 @@
+
+# Claude Code secret guardrails
+.env
+.env.*
+*.pem
+*.key
+**/secrets/**
+**/credentials/**
+**/.aws/**
+**/.ssh/**
