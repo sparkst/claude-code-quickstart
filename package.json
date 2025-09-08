@@ -1,0 +1,33 @@
+{
+  "name": "claude-code-quickstart",
+  "version": "0.1.1",
+  "description": "Sparkry.AI quickstart for Claude Code + VS Code with Sabrina-style rules, safe permissions, and MCP servers pre-wired.",
+  "bin": {
+    "claude-code-quickstart": "bin/cli.js"
+  },
+  "scripts": {
+    "postinstall": "node bin/postinstall.js"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "anthropic",
+    "mcp",
+    "vs-code",
+    "sparkry.ai",
+    "quickstart"
+  ],
+  "author": "Sparkry.AI",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "bin/",
+    "templates/",
+    "scripts/",
+    "README.md",
+    "LICENSE"
+  ]
+}
+
