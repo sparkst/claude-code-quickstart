@@ -6,7 +6,13 @@
     "claude-code-quickstart": "bin/cli.js"
   },
   "scripts": {
-    "postinstall": "node bin/postinstall.js"
+    "postinstall": "node bin/postinstall.js",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:watch": "vitest --watch"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.0"
   },
   "keywords": [
     "claude",
