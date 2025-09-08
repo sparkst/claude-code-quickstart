@@ -675,6 +675,15 @@ function scaffoldProjectFiles() {
     console.log("• CLAUDE.md exists (left unchanged)");
   }
 
+  // README.md (navigation and mental model)
+  const readmeMd = path.join(PROJECT_DIR, "README.md");
+  if (!fs.existsSync(readmeMd)) {
+    fs.writeFileSync(readmeMd, TEMPLATE("README.md"), "utf8");
+    console.log("• README.md created (navigation template)");
+  } else {
+    console.log("• README.md exists (left unchanged)");
+  }
+
   // .claude/settings.json
   fs.mkdirSync(PROJ_CLAUDE_DIR, { recursive: true });
   const projSettings = path.join(PROJ_CLAUDE_DIR, "settings.json");
@@ -696,6 +705,24 @@ function scaffoldProjectFiles() {
     console.log("• .claude/settings.local.json created (local-only overrides)");
   } else {
     console.log("• .claude/settings.local.json exists (left unchanged)");
+  }
+
+  // Documentation templates directory
+  const docsDir = path.join(PROJ_CLAUDE_DIR, "templates");
+  fs.mkdirSync(docsDir, { recursive: true });
+  
+  // Domain README template
+  const domainReadme = path.join(docsDir, "domain-README.md");
+  if (!fs.existsSync(domainReadme)) {
+    fs.writeFileSync(domainReadme, TEMPLATE("domain-README.md"), "utf8");
+    console.log("• .claude/templates/domain-README.md created (for feature domains)");
+  }
+
+  // .claude-context template  
+  const claudeContext = path.join(docsDir, ".claude-context");
+  if (!fs.existsSync(claudeContext)) {
+    fs.writeFileSync(claudeContext, TEMPLATE(".claude-context"), "utf8");
+    console.log("• .claude/templates/.claude-context created (for AI assistance)");
   }
 
   // .gitignore (append secret guardrails if missing)

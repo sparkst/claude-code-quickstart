@@ -105,6 +105,12 @@ describe("scaffoldProjectFiles integration", () => {
       fs.writeFileSync(claudeMdPath, TEMPLATE("CLAUDE.md"), "utf8");
     }
 
+    // README.md (navigation and mental model)
+    const readmePath = path.join(projectDir, "README.md");
+    if (!fs.existsSync(readmePath)) {
+      fs.writeFileSync(readmePath, TEMPLATE("README.md"), "utf8");
+    }
+
     fs.mkdirSync(claudeDir, { recursive: true });
 
     if (!fs.existsSync(settingsPath)) {
@@ -117,6 +123,22 @@ describe("scaffoldProjectFiles integration", () => {
         TEMPLATE("project-settings.local.json"),
         "utf8",
       );
+    }
+
+    // Documentation templates directory
+    const docsDir = path.join(claudeDir, "templates");
+    fs.mkdirSync(docsDir, { recursive: true });
+    
+    // Domain README template
+    const domainReadme = path.join(docsDir, "domain-README.md");
+    if (!fs.existsSync(domainReadme)) {
+      fs.writeFileSync(domainReadme, TEMPLATE("domain-README.md"), "utf8");
+    }
+
+    // .claude-context template  
+    const claudeContext = path.join(docsDir, ".claude-context");
+    if (!fs.existsSync(claudeContext)) {
+      fs.writeFileSync(claudeContext, TEMPLATE(".claude-context"), "utf8");
     }
 
     const guard = [
@@ -148,10 +170,38 @@ describe("scaffoldProjectFiles integration", () => {
     expect(fs.existsSync(settingsPath)).toBe(true);
     expect(fs.existsSync(localPath)).toBe(true);
     expect(fs.existsSync(gitignorePath)).toBe(true);
+    
+    // Verify documentation templates were created
+    const projectReadmePath = path.join(testDir, "README.md");
+    const domainTemplatePath = path.join(testDir, ".claude", "templates", "domain-README.md");
+    const contextTemplatePath = path.join(testDir, ".claude", "templates", ".claude-context");
+    
+    expect(fs.existsSync(projectReadmePath)).toBe(true);
+    expect(fs.existsSync(domainTemplatePath)).toBe(true);
+    expect(fs.existsSync(contextTemplatePath)).toBe(true);
 
     // Verify content
     const claudeContent = fs.readFileSync(claudeMdPath, "utf8");
     expect(claudeContent).toContain("Claude Code Guidelines by Sabrina Ramonov");
+    expect(claudeContent).toContain("Progressive Documentation Guide");
+    expect(claudeContent).toContain("Context-Driven Inline Documentation");
+    
+    // Verify README template content
+    const readmeContent = fs.readFileSync(projectReadmePath, "utf8");
+    expect(readmeContent).toContain("Mental Model");
+    expect(readmeContent).toContain("Key Entry Points");
+    
+    // Verify domain template content
+    const domainContent = fs.readFileSync(domainTemplatePath, "utf8");
+    expect(domainContent).toContain("Domain Name");
+    expect(domainContent).toContain("Purpose");
+    expect(domainContent).toContain("Boundaries");
+    
+    // Verify .claude-context template
+    const contextContent = fs.readFileSync(contextTemplatePath, "utf8");
+    expect(contextContent).toContain("Domain:");
+    expect(contextContent).toContain("Key Concepts:");
+    expect(contextContent).toContain("Common Tasks:");
 
     const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
     expect(settings.defaultMode).toBe("plan");

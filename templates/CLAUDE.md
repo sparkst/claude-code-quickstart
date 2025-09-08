@@ -66,14 +66,24 @@ These rules ensure maintainability, safety, and developer velocity.
 
 ---
 
-### 6 — Tooling Gates
+### 6 — Documentation & Discovery
+
+- **DOC-1 (MUST)** Use self-documenting code as primary documentation - clear naming, branded types, pure functions.
+- **DOC-2 (MUST)** Add domain `README.md` files for each major feature area to explain boundaries and purpose.
+- **DOC-3 (SHOULD)** Create `.claude-context` files for complex domains requiring AI assistance.
+- **DOC-4 (MUST)** Keep navigation `README.md` in project root with mental model and entry points.
+- **DOC-5 (SHOULD)** Use git commit messages as change documentation following conventional commits.
+
+---
+
+### 7 — Tooling Gates
 
 - **G-1 (MUST)** `prettier --check` passes.  
 - **G-2 (MUST)** Type checking and linting passes (e.g., `tsc --noEmit`, `eslint`, `turbo typecheck lint`).  
 
 ---
 
-### 7 - Git
+### 8 - Git
 
 - **GH-1 (MUST)** Use Conventional Commits format when writing commit messages: https://www.conventionalcommits.org/en/v1.0.0
 - **GH-2 (SHOULD NOT)** Refer to Claude or Anthropic in commit messages.
@@ -246,3 +256,109 @@ BREAKING CHANGE: a commit that has a footer BREAKING CHANGE:, or appends a ! aft
 types other than fix: and feat: are allowed, for example @commitlint/config-conventional (based on the Angular convention) recommends build:, chore:, ci:, docs:, style:, refactor:, perf:, test:, and others.
 footers other than BREAKING CHANGE: <description> may be provided and follow a convention similar to git trailer format.
 ```
+
+---
+
+## Progressive Documentation Guide
+
+This project uses **Context-Driven Inline Documentation** - documentation that lives with the code and scales progressively based on complexity.
+
+### Documentation Levels
+
+**Level 0: Self-Documenting Code** (Required)
+- Use branded types and clear domain vocabulary
+- Function names describe intent, not implementation  
+- Git commits serve as change documentation
+
+**Level 1: Navigation README** (Required)
+- Keep `README.md` in project root
+- Provide mental model and key entry points
+- Link to major feature areas
+
+**Level 2: Domain READMEs** (Required for features)  
+- Add `README.md` in each major feature directory
+- Explain domain boundaries and purpose
+- List key files and their responsibilities
+
+**Level 3: AI Context Files** (Optional, for complex domains)
+- Create `.claude-context` files where AI needs guidance
+- Provide domain knowledge and exploration hints
+- Include common patterns and gotchas
+
+### Templates
+
+**Root README.md Template:**
+```markdown
+# Project Name
+
+## Mental Model
+Brief description of what this system does and its primary purpose.
+
+## Key Entry Points
+- `src/auth/` - User authentication and authorization
+- `src/api/` - HTTP API endpoints  
+- `src/core/` - Business logic and domain models
+- `src/ui/` - User interface components
+
+## Getting Started
+[Development setup instructions]
+
+## Architecture Overview  
+[High-level system design - keep brief, details in domain READMEs]
+```
+
+**Domain README.md Template:**
+```markdown  
+# [Domain Name] 
+
+## Purpose
+What this domain is responsible for and why it exists.
+
+## Boundaries
+What is inside/outside this domain's responsibility.
+
+## Key Files
+- `types.ts` - Core domain types and interfaces
+- `service.ts` - Main business logic
+- `api.ts` - External integrations
+- `__tests__/` - Domain-specific tests
+
+## Common Patterns
+[Domain-specific patterns developers should know]
+
+## Dependencies
+[Other domains this depends on]
+```
+
+**.claude-context Template:**
+```
+Domain: [Feature Name]
+Purpose: [Brief description]  
+
+Key Concepts:
+- [Concept 1]: [Explanation]
+- [Concept 2]: [Explanation]
+
+Important Files:
+- [file.ts]: [What it does]
+- [other.ts]: [What it does]
+
+Common Tasks:
+- "Add new [thing]": Start in [file.ts], follow pattern in [example]
+- "Debug [issue]": Check [file.ts] for [specific thing]
+
+Gotchas:  
+- [Thing to watch out for]
+- [Common mistake]
+
+Dependencies: [List other domains this connects to]
+```
+
+### Maintenance
+
+- **When creating new features**: Add domain README.md
+- **When code becomes complex**: Consider adding .claude-context
+- **When refactoring**: Update affected READMEs  
+- **When debugging repeatedly**: Document in .claude-context
+
+This approach scales from simple projects (just good code + root README) to complex systems (full progressive documentation) based on actual need.

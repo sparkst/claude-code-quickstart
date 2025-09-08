@@ -1,0 +1,34 @@
+Domain: [Feature Name]
+Purpose: [Brief description of what this domain does]  
+
+Key Concepts:
+- [Concept 1]: [Explanation of important domain concept]
+- [Concept 2]: [Another key concept developers need to understand]
+
+Important Files:
+- [core-file.ts]: [Main business logic, start here for understanding the domain]
+- [types.ts]: [Domain types and interfaces]
+- [service.ts]: [External integrations and side effects]
+
+Common Tasks:
+- "Add new [feature]": Start in [file.ts], follow pattern in [example-function]
+- "Debug [specific issue]": Check [file.ts] for [specific debugging approach]
+- "Modify [behavior]": Look at [file.ts], understand [concept] first
+
+Gotchas:  
+- [Thing to watch out for that commonly trips up developers]
+- [Common mistake or assumption that causes bugs]
+- [Performance consideration or limitation]
+
+Dependencies: 
+- [other-domain]: [Why this domain depends on it]
+- [external-service]: [How this integrates with external systems]
+
+Testing Notes:
+- [Special testing considerations]
+- [Mock requirements or test data setup]
+
+Example Usage:
+```
+[Code example showing typical usage of this domain]
+```
