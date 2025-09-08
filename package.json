@@ -1,6 +1,6 @@
 {
   "name": "claude-code-quickstart",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Sparkry.AI quickstart for Claude Code + VS Code with Sabrina-style rules, safe permissions, and MCP servers pre-wired.",
   "bin": {
     "claude-code-quickstart": "bin/cli.js"
@@ -30,4 +30,3 @@
     "LICENSE"
   ]
 }
-
