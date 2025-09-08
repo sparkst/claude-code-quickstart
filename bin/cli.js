@@ -82,7 +82,10 @@ function buildClaudeMcpCommand(spec, scope, envVars, extraArgs = []) {
     parts.push('--scope', scope);
   }
   
-  // Add environment variables
+  // Add server name BEFORE environment variables
+  parts.push(spec.key);
+  
+  // Add environment variables AFTER server name
   if (envVars && typeof envVars === 'object') {
     for (const [key, value] of Object.entries(envVars)) {
       if (value) {
@@ -90,9 +93,6 @@ function buildClaudeMcpCommand(spec, scope, envVars, extraArgs = []) {
       }
     }
   }
-  
-  // Add server name
-  parts.push(spec.key);
   
   // Add separator
   parts.push('--');
