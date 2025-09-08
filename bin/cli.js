@@ -110,6 +110,56 @@ function buildClaudeMcpCommand(spec, scope, envVars, extraArgs = []) {
   return parts.join(' ');
 }
 
+function checkMcpServerExists(serverKey) {
+  try {
+    const result = execSync('claude mcp list', { 
+      encoding: 'utf8', 
+      stdio: 'pipe' 
+    });
+    // Parse the text output to find the server
+    // Format: "server-name: command - ✓ Connected" or "server-name: command - ✗ Failed"
+    const lines = result.split('\n');
+    for (const line of lines) {
+      if (line.startsWith(serverKey + ':')) {
+        return true;
+      }
+    }
+    return false;
+  } catch (error) {
+    // If we can't check, assume it doesn't exist
+    return false;
+  }
+}
+
+async function handleExistingServer(spec, askFn) {
+  console.log(`  ⚠️  ${spec.title} is already configured`);
+  const choice = await askFn(
+    `What would you like to do? (k)eep existing, (r)emove and reinstall, (s)kip`,
+    'k'
+  );
+  
+  switch (choice.toLowerCase()) {
+    case 'r':
+    case 'remove':
+      console.log(`  🗑️  Removing existing ${spec.title}...`);
+      try {
+        execSync(`claude mcp remove ${spec.key}`, { stdio: 'pipe' });
+        console.log(`  ✅ ${spec.title} removed successfully`);
+        return 'reinstall';
+      } catch (error) {
+        console.log(`  ❌ Failed to remove ${spec.title}: ${error.message}`);
+        return 'skip';
+      }
+    case 's':
+    case 'skip':
+      return 'skip';
+    case 'k':
+    case 'keep':
+    default:
+      return 'keep';
+  }
+}
+
 const SERVER_SPECS = [
   {
     key: "context7",
@@ -470,6 +520,24 @@ async function configureClaudeCode() {
       }
       
       if (serverConfig && serverConfig.action === 'configure') {
+        // Check if server already exists
+        const exists = checkMcpServerExists(spec.key);
+        
+        if (exists) {
+          const action = await handleExistingServer(spec, ask);
+          
+          if (action === 'skip') {
+            console.log(`  ⏭️  ${spec.title} kept existing configuration`);
+            skippedServers.push(spec.title);
+            continue;
+          } else if (action === 'keep') {
+            console.log(`  ✅ ${spec.title} kept existing configuration`);
+            configuredServers.push(spec.title);
+            continue;
+          }
+          // If action === 'reinstall', continue with installation below
+        }
+        
         // Build and execute claude mcp add command
         const command = buildClaudeMcpCommand(
           spec, 
