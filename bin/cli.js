@@ -65,6 +65,22 @@ function maskKey(s) {
   return s.slice(0, 5) + "…" + s.slice(-3);
 }
 
+function shouldMaskEnvVar(envVarName) {
+  if (!envVarName) return true;
+  const name = envVarName.toLowerCase();
+  // Don't mask URLs and endpoints
+  if (name.includes('url') || name.includes('endpoint')) {
+    return false;
+  }
+  // Mask keys, tokens, secrets, and anything else by default for security
+  return true;
+}
+
+function formatExistingValue(envVarName, value) {
+  if (!value) return null;
+  return shouldMaskEnvVar(envVarName) ? maskKey(value) : value;
+}
+
 function ensureServersPreserved(existing) {
   const out = existing && typeof existing === "object" ? { ...existing } : {};
   out.mcpServers =
@@ -364,6 +380,18 @@ async function promptWranglerServerForCommand(spec, askFn) {
 
 async function promptDualEnvServerForCommand(spec, askFn) {
   console.log(`\n• ${spec.title} → ${spec.helpUrl}`);
+  
+  // Check for existing environment variables and display them
+  const existingEnv = getExistingServerEnv(spec.key);
+  if (existingEnv[spec.envVar]) {
+    const formattedValue = formatExistingValue(spec.envVar, existingEnv[spec.envVar]);
+    console.log(`Existing ${spec.envVar}: ${formattedValue}`);
+  }
+  if (existingEnv[spec.envVar2]) {
+    const formattedValue = formatExistingValue(spec.envVar2, existingEnv[spec.envVar2]);
+    console.log(`Existing ${spec.envVar2}: ${formattedValue}`);
+  }
+  
   const input1 = await askFn(
     `${spec.envVar} (e.g., http://localhost:5678/api/v1)`,
     "",
@@ -401,6 +429,16 @@ async function promptStandardServerForCommand(spec, askFn) {
   console.log(
     `\n• ${spec.title} ${spec.envVar ? "API key" : ""} → ${spec.helpUrl}`,
   );
+  
+  // Check for existing API key and display it
+  if (spec.envVar) {
+    const existingEnv = getExistingServerEnv(spec.key);
+    if (existingEnv[spec.envVar]) {
+      const maskedKey = maskKey(existingEnv[spec.envVar]);
+      console.log(`Existing Key: ${maskedKey}`);
+    }
+  }
+  
   const input = await askFn(promptText, "");
 
   if (input === "-") {
@@ -554,24 +592,6 @@ async function configureClaudeCode() {
 
   for (const spec of SERVER_SPECS) {
     try {
-      // Check if server already exists BEFORE prompting for new credentials
-      const exists = checkMcpServerExists(spec.key);
-
-      if (exists) {
-        const action = await handleExistingServer(spec, ask);
-
-        if (action === "skip") {
-          console.log(`  ⏭️  ${spec.title} kept existing configuration`);
-          skippedServers.push(spec.title);
-          continue;
-        } else if (action === "keep") {
-          console.log(`  ✅ ${spec.title} kept existing configuration`);
-          configuredServers.push(spec.title);
-          continue;
-        }
-        // If action === 'reinstall', continue with prompts and installation below
-      }
-
       // Route to appropriate prompt handler and collect results
       let serverConfig = null;
 
