@@ -66,8 +66,8 @@ describe("TEMPLATE loading", () => {
     const claudeTemplate = TEMPLATE("CLAUDE.md");
 
     expect(typeof claudeTemplate).toBe("string");
-    expect(claudeTemplate).toContain("CLAUDE.md — Sparkry.AI House Rules");
-    expect(claudeTemplate).toContain("Ask/Plan first");
+    expect(claudeTemplate).toContain("Claude Code Guidelines by Sabrina Ramonov");
+    expect(claudeTemplate).toContain("Implementation Best Practices");
   });
 
   test("loads project-settings.json template", () => {
@@ -151,7 +151,7 @@ describe("scaffoldProjectFiles integration", () => {
 
     // Verify content
     const claudeContent = fs.readFileSync(claudeMdPath, "utf8");
-    expect(claudeContent).toContain("Sparkry.AI House Rules");
+    expect(claudeContent).toContain("Claude Code Guidelines by Sabrina Ramonov");
 
     const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
     expect(settings.defaultMode).toBe("plan");

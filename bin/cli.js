@@ -13,7 +13,6 @@ const readline = require("node:readline");
 
 const HOME = os.homedir();
 const GLOBAL_DIR = path.join(HOME, ".claude");
-const GLOBAL_SETTINGS = path.join(GLOBAL_DIR, "settings.json");
 
 const PROJECT_DIR = process.cwd();
 const PROJ_CLAUDE_DIR = path.join(PROJECT_DIR, ".claude");
@@ -32,70 +31,31 @@ function ask(q, def = "") {
   );
 }
 
-function loadJsonSafe(p, fallback) {
-  try {
-    if (!fs.existsSync(p)) return fallback;
-    return JSON.parse(fs.readFileSync(p, "utf8"));
-  } catch {
-    console.warn(
-      `! Warning: could not parse ${p}. Backing up to ${p}.bak and starting fresh.`,
-    );
-    try {
-      fs.copyFileSync(p, `${p}.bak`);
-    } catch {}
-    return fallback;
+async function askScope() {
+  console.log('\n🎯 Choose Claude Code MCP server scope:');
+  console.log('  1) User (recommended) - Available across all your projects');
+  console.log('  2) Project - Shared with team via .mcp.json file');
+  console.log('  3) Local - Private to current session only');
+  
+  const choice = await ask('Select scope (1-3)', '1');
+  
+  switch (choice) {
+    case '1':
+    case 'user':
+    case 'u':
+      return 'user';
+    case '2':
+    case 'project':
+    case 'p':
+      return 'project';
+    case '3':
+    case 'local':
+    case 'l':
+      return 'local';
+    default:
+      console.log('  Using default: User scope');
+      return 'user';
   }
-}
-function writeJsonPretty(p, obj) {
-  fs.mkdirSync(path.dirname(p), { recursive: true });
-  fs.writeFileSync(p, JSON.stringify(obj, null, 2) + "\n", "utf8");
-}
-
-function ensureDefaultMode(obj) {
-  if (!obj.defaultMode) obj.defaultMode = "plan";
-  return obj;
-}
-
-// Merge safe, keep user’s existing rules, add our defaults if missing
-function mergePermissions(base) {
-  const deny = new Set([
-    "Read(*.env)",
-    "Read(**/*.pem)",
-    "Read(**/*.key)",
-    "Read(**/secrets/**)",
-    "Read(**/credentials/**)",
-    "Read(~/.*ssh/**)",
-    "Edit(*.env)",
-    "Edit(**/*.pem)",
-    "Edit(**/*.key)",
-    "Edit(**/secrets/**)",
-    "Edit(**/credentials/**)",
-  ]);
-  const ask = new Set(["Bash(*)", "Edit(/**)"]);
-  const allow = new Set([
-    "Read(/**)",
-    "Bash(npm run test*)",
-    "Bash(yarn test*)",
-    "Bash(pnpm test*)",
-    "Bash(npx vitest*)",
-    "Bash(npx jest*)",
-    "Bash(npm run lint*)",
-    "Bash(npm run typecheck)",
-    "Bash(npm run prettier:check)",
-  ]);
-
-  const out = base || {};
-  out.permissions = out.permissions || {};
-  for (const [k, set] of [
-    ["deny", deny],
-    ["ask", ask],
-    ["allow", allow],
-  ]) {
-    const existing = new Set(out.permissions[k] || []);
-    for (const item of set) existing.add(item);
-    out.permissions[k] = Array.from(existing);
-  }
-  return out;
 }
 
 function maskKey(s) {
@@ -112,6 +72,42 @@ function ensureServersPreserved(existing) {
       ? { ...out.mcpServers }
       : {};
   return out;
+}
+
+function buildClaudeMcpCommand(spec, scope, envVars, extraArgs = []) {
+  const parts = ['claude', 'mcp', 'add'];
+  
+  // Add scope if not default
+  if (scope && scope !== 'local') {
+    parts.push('--scope', scope);
+  }
+  
+  // Add environment variables
+  if (envVars && typeof envVars === 'object') {
+    for (const [key, value] of Object.entries(envVars)) {
+      if (value) {
+        parts.push('--env', `${key}=${value}`);
+      }
+    }
+  }
+  
+  // Add server name
+  parts.push(spec.key);
+  
+  // Add separator
+  parts.push('--');
+  
+  // Add command
+  parts.push(spec.command);
+  
+  // Add args - handle function vs array
+  const args = typeof spec.args === 'function' 
+    ? spec.args(...extraArgs)
+    : spec.args || [];
+  
+  parts.push(...args);
+  
+  return parts.join(' ');
 }
 
 const SERVER_SPECS = [
@@ -236,6 +232,95 @@ async function promptPathServer(spec, servers, askFn) {
   console.log(`  (configured ${spec.title} with path: ${path})`);
 }
 
+// Command-focused prompt functions that return configuration objects
+async function promptPathServerForCommand(spec, askFn) {
+  console.log(`\n• ${spec.title} → ${spec.helpUrl}`);
+  const input = await askFn('Directory path for file system access', process.cwd());
+  
+  if (input === '-') {
+    return { action: 'disable' };
+  }
+  
+  if (!input) {
+    return { action: 'skip' };
+  }
+  
+  return {
+    action: 'configure',
+    extraArgs: [input || process.cwd()]
+  };
+}
+
+async function promptWranglerServerForCommand(spec, askFn) {
+  console.log(`\n• ${spec.title} → ${spec.helpUrl}`);
+  console.log('  ⚠️  Requires: npx wrangler login (run separately before using)');
+  const input = await askFn('Enable Cloudflare MCP server? (y/N)', 'n');
+  
+  if (input === '-') {
+    return { action: 'disable' };
+  }
+  
+  if (input.toLowerCase() !== 'y') {
+    return { action: 'skip' };
+  }
+  
+  return {
+    action: 'configure',
+    envVars: {}
+  };
+}
+
+async function promptDualEnvServerForCommand(spec, askFn) {
+  console.log(`\n• ${spec.title} → ${spec.helpUrl}`);
+  const input1 = await askFn(`${spec.envVar} (e.g., http://localhost:5678/api/v1)`, '');
+  
+  if (input1 === '-') {
+    return { action: 'disable' };
+  }
+  
+  if (!input1) {
+    return { action: 'skip' };
+  }
+  
+  const input2 = await askFn(`${spec.envVar2}`, '');
+  if (!input2) {
+    console.log(`  (skipped ${spec.title} - API key required)`);
+    return { action: 'skip' };
+  }
+  
+  return {
+    action: 'configure',
+    envVars: {
+      [spec.envVar]: input1,
+      [spec.envVar2]: input2
+    }
+  };
+}
+
+async function promptStandardServerForCommand(spec, askFn) {
+  const promptText = spec.envVar === 'POSTGRES_CONNECTION_STRING' 
+    ? 'PostgreSQL connection string (e.g., postgresql://user:pass@localhost/db)'
+    : spec.envVar;
+  
+  console.log(`\n• ${spec.title} ${spec.envVar ? 'API key' : ''} → ${spec.helpUrl}`);
+  const input = await askFn(promptText, '');
+  
+  if (input === '-') {
+    return { action: 'disable' };
+  }
+  
+  if (!input) {
+    return { action: 'skip' };
+  }
+  
+  return {
+    action: 'configure',
+    envVars: {
+      [spec.envVar]: input
+    }
+  };
+}
+
 async function promptWranglerServer(spec, servers, askFn) {
   console.log(`\n• ${spec.title} → ${spec.helpUrl}`);
   console.log(
@@ -351,48 +436,96 @@ async function promptStandardServer(spec, servers, existingEnv, askFn) {
   console.log(`  (saved ${spec.title})`);
 }
 
-async function promptMcpServers(existingGlobal) {
-  const merged = ensureServersPreserved(existingGlobal);
-  const servers = merged.mcpServers;
-
+async function configureClaudeCode() {
+  const { execSync } = require("node:child_process");
+  
+  console.log('\n📁 Configuring Claude Code MCP servers');
+  
+  // Get scope preference
+  const scope = await askScope();
+  console.log(`\nUsing ${scope} scope for MCP server configuration\n`);
+  
   console.log(
-    '\n🔌 Configure MCP servers (Enter = keep existing; "-" = disable; empty new on missing = skip)',
+    '🔌 Configure MCP servers (Enter = skip; "-" = disable existing)',
   );
 
-  for (const spec of SERVER_SPECS) {
-    const existingEntry = servers[spec.key] || {};
-    const existingEnv =
-      existingEntry.env && typeof existingEntry.env === "object"
-        ? existingEntry.env
-        : {};
+  // Track configured servers for summary
+  const configuredServers = [];
+  const skippedServers = [];
+  const failedServers = [];
 
-    // Route to appropriate prompt handler
-    if (spec.promptType === "path") {
-      await promptPathServer(spec, servers, ask);
-    } else if (spec.promptType === "wrangler") {
-      await promptWranglerServer(spec, servers, ask);
-    } else if (spec.envVar2) {
-      await promptDualEnvServer(spec, servers, existingEnv, ask);
-    } else {
-      await promptStandardServer(spec, servers, existingEnv, ask);
+  for (const spec of SERVER_SPECS) {
+    // Route to appropriate prompt handler and collect results
+    let serverConfig = null;
+    
+    try {
+      if (spec.promptType === "path") {
+        serverConfig = await promptPathServerForCommand(spec, ask);
+      } else if (spec.promptType === "wrangler") {
+        serverConfig = await promptWranglerServerForCommand(spec, ask);
+      } else if (spec.envVar2) {
+        serverConfig = await promptDualEnvServerForCommand(spec, ask);
+      } else {
+        serverConfig = await promptStandardServerForCommand(spec, ask);
+      }
+      
+      if (serverConfig && serverConfig.action === 'configure') {
+        // Build and execute claude mcp add command
+        const command = buildClaudeMcpCommand(
+          spec, 
+          scope, 
+          serverConfig.envVars, 
+          serverConfig.extraArgs || []
+        );
+        
+        console.log(`  Installing ${spec.title}...`);
+        execSync(command, { stdio: 'inherit' });
+        console.log(`  ✅ ${spec.title} configured successfully`);
+        configuredServers.push(spec.title);
+        
+      } else if (serverConfig && serverConfig.action === 'disable') {
+        // Remove existing server
+        try {
+          execSync(`claude mcp remove ${spec.key}`, { stdio: 'pipe' });
+          console.log(`  🗑️  ${spec.title} removed`);
+        } catch {
+          // Server wasn't configured, that's fine
+          console.log(`  ⚠️  ${spec.title} was not configured`);
+        }
+      } else {
+        console.log(`  ⏭️  ${spec.title} skipped`);
+        skippedServers.push(spec.title);
+      }
+      
+    } catch (error) {
+      console.log(`  ❌ ${spec.title} failed: ${error.message}`);
+      failedServers.push(spec.title);
     }
   }
-
-  return merged.mcpServers;
+  
+  // Show summary
+  console.log('\n' + '='.repeat(50));
+  console.log('📊 Configuration Summary:');
+  if (configuredServers.length > 0) {
+    console.log(`  ✅ Configured: ${configuredServers.join(', ')}`);
+  }
+  if (skippedServers.length > 0) {
+    console.log(`  ⏭️  Skipped: ${skippedServers.join(', ')}`);
+  }
+  if (failedServers.length > 0) {
+    console.log(`  ❌ Failed: ${failedServers.join(', ')}`);
+  }
+  console.log('='.repeat(50));
+  
+  // Verify installation
+  try {
+    console.log('\n🔍 Verifying MCP server installation...');
+    execSync('claude mcp list', { stdio: 'inherit' });
+  } catch (error) {
+    console.log('⚠️  Could not verify installation. Run `claude mcp list` to check manually.');
+  }
 }
 
-async function configureGlobal() {
-  console.log("\n📁 Updating global settings: ~/.claude/settings.json");
-  const current = loadJsonSafe(GLOBAL_SETTINGS, {});
-  let merged = ensureDefaultMode(mergePermissions(current));
-  merged.additionalDirectories = merged.additionalDirectories || [];
-  // Merge servers but preserve others we don't manage
-  const before = ensureServersPreserved(merged);
-  const updatedServers = await promptMcpServers(before);
-  merged.mcpServers = updatedServers;
-  writeJsonPretty(GLOBAL_SETTINGS, merged);
-  console.log("✅ Wrote global settings.");
-}
 
 function scaffoldProjectFiles() {
   console.log("\n🧩 Scaffolding project files in:", PROJECT_DIR);
@@ -501,30 +634,12 @@ function showPostSetupGuide() {
   console.log('  □ Test MCP servers: "Search for X" (uses Brave Search)');
 
   console.log("\n📚 CONFIGURED MCP SERVERS:");
-  const configuredServers = [];
-  try {
-    const settings = loadJsonSafe(GLOBAL_SETTINGS, {});
-    if (settings.mcpServers) {
-      for (const key of Object.keys(settings.mcpServers)) {
-        const serverSpec = SERVER_SPECS.find((s) => s.key === key);
-        if (serverSpec) {
-          configuredServers.push(
-            serverSpec.title.replace(" (Recommended)", ""),
-          );
-        }
-      }
-    }
-  } catch {}
-
-  if (configuredServers.length > 0) {
-    console.log("  ✓ " + configuredServers.join(", "));
-  } else {
-    console.log("  (None configured - run setup again to add)");
-  }
+  console.log("  • Check your MCP servers with: claude mcp list");
+  console.log("  • Test them with /mcp command in Claude Code");
 
   console.log("\n💡 PRO TIPS:");
   console.log("  • Use qnew, qplan, qcode shortcuts for faster development");
-  console.log("  • Check ~/.claude/settings.json for your configuration");
+  console.log("  • Manage MCP servers: claude mcp add/remove/list");
   console.log("  • VS Code shortcuts: Cmd+Esc (Mac) / Ctrl+Esc (Windows)");
 
   console.log("\n📖 RESOURCES:");
@@ -538,7 +653,7 @@ async function main() {
   const cmd = process.argv[2];
 
   if (cmd === "init") {
-    await configureGlobal();
+    await configureClaudeCode();
     scaffoldProjectFiles();
     rl.close();
     showPostSetupGuide();
@@ -546,8 +661,8 @@ async function main() {
   }
 
   console.log("Sparkry.AI — Claude Code Quickstart");
-  console.log("1) Configure global settings (~/.claude/settings.json)");
-  await configureGlobal();
+  console.log("1) Configure Claude Code MCP servers");
+  await configureClaudeCode();
 
   const doProj = (
     await ask("\nAlso scaffold project files in current dir? (Y/n) ", "y")
