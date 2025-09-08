@@ -812,6 +812,307 @@ function showPostSetupGuide() {
   console.log("\nReady to build something amazing! 🎉\n");
 }
 
+function createChecksum(content) {
+  const crypto = require("crypto");
+  return crypto.createHash("sha256").update(content, "utf8").digest("hex").slice(0, 16);
+}
+
+function compareTemplates(currentContent, templateContent) {
+  if (currentContent === templateContent) {
+    return { status: "identical", needsUpdate: false };
+  }
+  
+  // Simple heuristic: if current content contains our template markers, it's likely customized
+  const hasCustomizations = currentContent !== templateContent && 
+    (currentContent.includes("# Claude Code Guidelines") || 
+     currentContent.includes("## Mental Model") ||
+     currentContent.includes("Domain:"));
+  
+  return {
+    status: hasCustomizations ? "customized" : "outdated",
+    needsUpdate: true,
+    currentChecksum: createChecksum(currentContent),
+    templateChecksum: createChecksum(templateContent)
+  };
+}
+
+async function analyzeCurrentTemplates() {
+  console.log("🔍 Analyzing current templates...\n");
+  
+  const results = [];
+  const templateFiles = [
+    { 
+      path: "CLAUDE.md", 
+      templateName: "CLAUDE.md",
+      description: "Development guidelines and coding standards"
+    },
+    { 
+      path: "README.md", 
+      templateName: "README.md",
+      description: "Project navigation and mental model"
+    },
+    { 
+      path: ".claude/templates/domain-README.md", 
+      templateName: "domain-README.md",
+      description: "Template for feature domain documentation"
+    },
+    { 
+      path: ".claude/templates/.claude-context", 
+      templateName: ".claude-context",
+      description: "Template for AI assistance in complex domains"
+    }
+  ];
+
+  for (const file of templateFiles) {
+    const fullPath = path.join(PROJECT_DIR, file.path);
+    const templatePath = path.join(TEMPLATES, file.templateName);
+    
+    if (!fs.existsSync(fullPath)) {
+      results.push({
+        ...file,
+        status: "missing",
+        needsUpdate: true,
+        action: "create"
+      });
+      continue;
+    }
+    
+    if (!fs.existsSync(templatePath)) {
+      console.log(`⚠️  Template ${file.templateName} not found in package`);
+      continue;
+    }
+    
+    const currentContent = fs.readFileSync(fullPath, "utf8");
+    const templateContent = fs.readFileSync(templatePath, "utf8");
+    
+    const comparison = compareTemplates(currentContent, templateContent);
+    results.push({
+      ...file,
+      ...comparison,
+      action: comparison.needsUpdate ? "update" : "none"
+    });
+  }
+  
+  return results;
+}
+
+async function showTemplateStatus(results) {
+  console.log("📋 Template Status:\n");
+  
+  let needsAttention = 0;
+  
+  for (const result of results) {
+    const icon = result.status === "identical" ? "✅" : 
+                 result.status === "missing" ? "❌" : 
+                 result.status === "customized" ? "🔧" : "⚠️";
+    
+    console.log(`${icon} ${result.path}`);
+    console.log(`   ${result.description}`);
+    console.log(`   Status: ${result.status}`);
+    
+    if (result.needsUpdate) {
+      needsAttention++;
+      if (result.status === "missing") {
+        console.log("   Action: Will be created");
+      } else if (result.status === "customized") {
+        console.log("   Action: Manual review recommended");
+      } else {
+        console.log("   Action: Can be updated");
+      }
+    }
+    console.log("");
+  }
+  
+  return needsAttention;
+}
+
+async function selectTemplatesForUpdate(results) {
+  const updateable = results.filter(r => r.needsUpdate);
+  if (updateable.length === 0) return [];
+  
+  console.log("🎯 Select templates to update:\n");
+  
+  const choices = [];
+  for (let i = 0; i < updateable.length; i++) {
+    const result = updateable[i];
+    const recommendation = result.status === "customized" ? " (⚠️  has customizations)" : "";
+    console.log(`  ${i + 1}) ${result.path}${recommendation}`);
+    choices.push(result);
+  }
+  
+  console.log(`  a) All templates`);
+  console.log(`  q) Quit without updating\n`);
+  
+  const response = await ask("Select templates (1,2,3 or 'a' or 'q')", "");
+  
+  if (response.toLowerCase() === "q") {
+    return [];
+  }
+  
+  if (response.toLowerCase() === "a") {
+    return choices;
+  }
+  
+  // Parse comma-separated numbers
+  const selected = [];
+  const numbers = response.split(",").map(s => s.trim());
+  
+  for (const num of numbers) {
+    const index = parseInt(num) - 1;
+    if (index >= 0 && index < choices.length) {
+      selected.push(choices[index]);
+    }
+  }
+  
+  return selected;
+}
+
+async function createBackup(filePath) {
+  if (!fs.existsSync(filePath)) return null;
+  
+  const backupPath = `${filePath}.backup.${Date.now()}`;
+  const content = fs.readFileSync(filePath, "utf8");
+  fs.writeFileSync(backupPath, content, "utf8");
+  return backupPath;
+}
+
+async function updateTemplate(templateInfo, dryRun = false) {
+  const fullPath = path.join(PROJECT_DIR, templateInfo.path);
+  const templatePath = path.join(TEMPLATES, templateInfo.templateName);
+  
+  console.log(`${dryRun ? "[DRY RUN]" : ""} Updating ${templateInfo.path}...`);
+  
+  if (dryRun) {
+    console.log(`  Would ${templateInfo.status === "missing" ? "create" : "update"} file`);
+    return { success: true, dryRun: true };
+  }
+  
+  try {
+    // Create backup if file exists
+    let backupPath = null;
+    if (fs.existsSync(fullPath)) {
+      backupPath = await createBackup(fullPath);
+      console.log(`  Created backup: ${path.basename(backupPath)}`);
+    }
+    
+    // Ensure directory exists
+    const dir = path.dirname(fullPath);
+    fs.mkdirSync(dir, { recursive: true });
+    
+    // Copy template content
+    const templateContent = fs.readFileSync(templatePath, "utf8");
+    fs.writeFileSync(fullPath, templateContent, "utf8");
+    
+    console.log(`  ✅ ${templateInfo.status === "missing" ? "Created" : "Updated"} successfully`);
+    
+    return { success: true, backupPath };
+    
+  } catch (error) {
+    console.log(`  ❌ Failed to update: ${error.message}`);
+    return { success: false, error: error.message };
+  }
+}
+
+async function updateTemplates() {
+  console.log("📝 Claude Code Template Update Tool\n");
+  
+  // Check if we're in a project directory
+  const hasClaudeDir = fs.existsSync(path.join(PROJECT_DIR, ".claude"));
+  if (!hasClaudeDir) {
+    console.log("❌ No .claude directory found. Please run 'npx claude-code-quickstart init' first.\n");
+    return;
+  }
+  
+  try {
+    // Phase 1: Analysis
+    const results = await analyzeCurrentTemplates();
+    const needsAttention = await showTemplateStatus(results);
+    
+    if (needsAttention === 0) {
+      console.log("✅ All templates are up to date!\n");
+      return;
+    }
+    
+    // Phase 2: Selection
+    const selectedTemplates = await selectTemplatesForUpdate(results);
+    
+    if (selectedTemplates.length === 0) {
+      console.log("👋 No templates selected. Exiting.\n");
+      return;
+    }
+    
+    // Ask for dry run first
+    const dryRun = (await ask("\nPerform dry run first? (Y/n)", "y")).toLowerCase();
+    const shouldDryRun = !dryRun.startsWith("n");
+    
+    if (shouldDryRun) {
+      console.log("\n🔍 Dry run - showing what would be changed:\n");
+      for (const template of selectedTemplates) {
+        await updateTemplate(template, true);
+      }
+      
+      const proceed = await ask("\nProceed with actual updates? (y/N)", "n");
+      if (!proceed.toLowerCase().startsWith("y")) {
+        console.log("👋 Cancelled by user.\n");
+        return;
+      }
+    }
+    
+    // Phase 3: Updates
+    console.log("\n🔧 Updating templates:\n");
+    const results_update = [];
+    
+    for (const template of selectedTemplates) {
+      const result = await updateTemplate(template, false);
+      results_update.push({ template, result });
+    }
+    
+    // Summary
+    console.log("\n📊 Update Summary:");
+    const successful = results_update.filter(r => r.result.success).length;
+    const failed = results_update.filter(r => !r.result.success).length;
+    
+    console.log(`  ✅ Successful: ${successful}`);
+    if (failed > 0) {
+      console.log(`  ❌ Failed: ${failed}`);
+    }
+    
+    const backups = results_update
+      .filter(r => r.result.backupPath)
+      .map(r => r.result.backupPath);
+    
+    if (backups.length > 0) {
+      console.log(`\n💾 Backups created:`);
+      backups.forEach(backup => console.log(`  ${backup}`));
+      console.log("\n  💡 To rollback: cp <backup-file> <original-file>");
+    }
+    
+    console.log("\n✅ Template update complete!\n");
+    
+  } catch (error) {
+    console.error(`❌ Error during template update: ${error.message}`);
+    process.exit(1);
+  }
+}
+
+function showHelp() {
+  console.log("📝 Claude Code Quickstart CLI\n");
+  console.log("USAGE:");
+  console.log("  npx claude-code-quickstart [command]\n");
+  console.log("COMMANDS:");
+  console.log("  init              Configure MCP servers and scaffold project files (default)");
+  console.log("  update-templates  Update existing templates to latest versions");  
+  console.log("  help, -h, --help  Show this help message\n");
+  console.log("EXAMPLES:");
+  console.log("  npx claude-code-quickstart");
+  console.log("  npx claude-code-quickstart init");
+  console.log("  npx claude-code-quickstart update-templates");
+  console.log("  npx claude-code-quickstart --help\n");
+  console.log("📖 DOCUMENTATION:");
+  console.log("  • GitHub → https://github.com/sparkryio/claude-code-quickstart");
+  console.log("  • Claude Code → https://docs.anthropic.com/claude-code\n");
+}
+
 async function main() {
   const cmd = process.argv[2];
 
@@ -821,6 +1122,25 @@ async function main() {
     rl.close();
     showPostSetupGuide();
     return;
+  }
+
+  if (cmd === "update-templates") {
+    await updateTemplates();
+    rl.close();
+    return;
+  }
+
+  if (cmd === "help" || cmd === "--help" || cmd === "-h") {
+    showHelp();
+    rl.close();
+    return;
+  }
+
+  if (cmd && !["init", "update-templates", "help", "--help", "-h"].includes(cmd)) {
+    console.log(`❌ Unknown command: ${cmd}\n`);
+    showHelp();
+    rl.close();
+    process.exit(1);
   }
 
   console.log("Sparkry.AI — Claude Code Quickstart");

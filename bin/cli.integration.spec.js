@@ -326,4 +326,210 @@ describe("CLI integration", () => {
     expect(result.signal).toBeNull();
     expect(typeof result.status).toBe("number");
   });
+
+  test("update-templates command requires .claude directory", () => {
+    const cliPath = path.join(
+      path.dirname(import.meta.url.replace("file://", "")),
+      "cli.js",
+    );
+
+    // Change to test directory (no .claude dir)
+    const result = spawnSync("node", [cliPath, "update-templates"], {
+      cwd: testDir,
+      stdio: "pipe",
+      timeout: 10000,
+      input: "q\n", // Quit if prompted
+    });
+
+    expect(result.status).toBe(0);
+    const output = result.stdout.toString();
+    expect(output).toContain("No .claude directory found");
+    expect(output).toContain("Please run 'npx claude-code-quickstart init' first");
+  });
+
+  test("update-templates detects identical templates", () => {
+    // Set up a project with .claude directory and up-to-date templates
+    const claudeDir = path.join(testDir, ".claude");
+    fs.mkdirSync(claudeDir, { recursive: true });
+    
+    const templatesDir = path.join(claudeDir, "templates");
+    fs.mkdirSync(templatesDir, { recursive: true });
+
+    // Create identical templates
+    const claudeMdPath = path.join(testDir, "CLAUDE.md");
+    const readmeMdPath = path.join(testDir, "README.md");
+    const domainReadmePath = path.join(templatesDir, "domain-README.md");
+    const claudeContextPath = path.join(templatesDir, ".claude-context");
+
+    fs.writeFileSync(claudeMdPath, TEMPLATE("CLAUDE.md"), "utf8");
+    fs.writeFileSync(readmeMdPath, TEMPLATE("README.md"), "utf8");
+    fs.writeFileSync(domainReadmePath, TEMPLATE("domain-README.md"), "utf8");
+    fs.writeFileSync(claudeContextPath, TEMPLATE(".claude-context"), "utf8");
+
+    const cliPath = path.join(
+      path.dirname(import.meta.url.replace("file://", "")),
+      "cli.js",
+    );
+
+    const result = spawnSync("node", [cliPath, "update-templates"], {
+      cwd: testDir,
+      stdio: "pipe",
+      timeout: 10000,
+      input: "q\n",
+    });
+
+    expect(result.status).toBe(0);
+    const output = result.stdout.toString();
+    expect(output).toContain("All templates are up to date!");
+  });
+
+  test("update-templates detects missing templates", () => {
+    // Set up a project with .claude directory but missing templates
+    const claudeDir = path.join(testDir, ".claude");
+    fs.mkdirSync(claudeDir, { recursive: true });
+
+    const cliPath = path.join(
+      path.dirname(import.meta.url.replace("file://", "")),
+      "cli.js",
+    );
+
+    const result = spawnSync("node", [cliPath, "update-templates"], {
+      cwd: testDir,
+      stdio: "pipe",
+      timeout: 10000,
+      input: "q\n", // Quit without updating
+    });
+
+    expect(result.status).toBe(0);
+    const output = result.stdout.toString();
+    expect(output).toContain("Status: missing");
+    expect(output).toContain("Action: Will be created");
+    expect(output).toContain("No templates selected. Exiting.");
+  });
+
+  test("update-templates detects customized templates", () => {
+    // Set up a project with customized CLAUDE.md
+    const claudeDir = path.join(testDir, ".claude");
+    fs.mkdirSync(claudeDir, { recursive: true });
+    
+    const templatesDir = path.join(claudeDir, "templates");
+    fs.mkdirSync(templatesDir, { recursive: true });
+
+    const claudeMdPath = path.join(testDir, "CLAUDE.md");
+    const customClaude = TEMPLATE("CLAUDE.md") + "\n# My Custom Rules\n- Custom rule here\n";
+    fs.writeFileSync(claudeMdPath, customClaude, "utf8");
+
+    // Create other templates as up-to-date
+    fs.writeFileSync(path.join(testDir, "README.md"), TEMPLATE("README.md"), "utf8");
+    fs.writeFileSync(path.join(templatesDir, "domain-README.md"), TEMPLATE("domain-README.md"), "utf8");
+    fs.writeFileSync(path.join(templatesDir, ".claude-context"), TEMPLATE(".claude-context"), "utf8");
+
+    const cliPath = path.join(
+      path.dirname(import.meta.url.replace("file://", "")),
+      "cli.js",
+    );
+
+    const result = spawnSync("node", [cliPath, "update-templates"], {
+      cwd: testDir,
+      stdio: "pipe",
+      timeout: 10000,
+      input: "q\n",
+    });
+
+    expect(result.status).toBe(0);
+    const output = result.stdout.toString();
+    expect(output).toContain("Status: customized");
+    expect(output).toContain("Action: Manual review recommended");
+    expect(output).toContain("has customizations");
+  });
+
+  test("update-templates creates backups when updating", () => {
+    // Set up a project with only outdated README
+    const claudeDir = path.join(testDir, ".claude");
+    fs.mkdirSync(claudeDir, { recursive: true });
+    
+    const templatesDir = path.join(claudeDir, "templates");
+    fs.mkdirSync(templatesDir, { recursive: true });
+
+    const readmePath = path.join(testDir, "README.md");
+    const outdatedReadme = "# Old Project\n\nThis is outdated content.";
+    fs.writeFileSync(readmePath, outdatedReadme, "utf8");
+
+    // Create other templates as identical to avoid them being listed
+    fs.writeFileSync(path.join(testDir, "CLAUDE.md"), TEMPLATE("CLAUDE.md"), "utf8");
+    fs.writeFileSync(path.join(templatesDir, "domain-README.md"), TEMPLATE("domain-README.md"), "utf8");
+    fs.writeFileSync(path.join(templatesDir, ".claude-context"), TEMPLATE(".claude-context"), "utf8");
+
+    const cliPath = path.join(
+      path.dirname(import.meta.url.replace("file://", "")),
+      "cli.js",
+    );
+
+    // README.md should be the only option (option 1), no dry run, proceed with update
+    const result = spawnSync("node", [cliPath, "update-templates"], {
+      cwd: testDir,
+      stdio: "pipe", 
+      timeout: 5000,
+      input: "1\nn\ny\n", // Select template 1, no dry run, proceed with update
+    });
+
+    expect(result.status).toBe(0);
+    const output = result.stdout.toString();
+    
+    // More flexible assertions since the exact order may vary
+    expect(output).toMatch(/Created backup:|backup/);
+    expect(output).toContain("Update Summary:");
+    expect(output).toMatch(/Successful: 1|✅/);
+    
+    // Verify backup was created
+    const backupFiles = fs.readdirSync(testDir).filter(f => f.includes("README.md.backup."));
+    expect(backupFiles.length).toBe(1);
+    
+    // Verify backup content
+    const backupContent = fs.readFileSync(path.join(testDir, backupFiles[0]), "utf8");
+    expect(backupContent).toBe(outdatedReadme);
+    
+    // Verify file was updated
+    const updatedContent = fs.readFileSync(readmePath, "utf8");
+    expect(updatedContent).toBe(TEMPLATE("README.md"));
+  });
+
+  test("update-templates dry run mode works correctly", () => {
+    // Set up a project with missing README only
+    const claudeDir = path.join(testDir, ".claude");
+    fs.mkdirSync(claudeDir, { recursive: true });
+    
+    const templatesDir = path.join(claudeDir, "templates");
+    fs.mkdirSync(templatesDir, { recursive: true });
+
+    // Create all templates as identical except README (missing)
+    fs.writeFileSync(path.join(testDir, "CLAUDE.md"), TEMPLATE("CLAUDE.md"), "utf8");
+    fs.writeFileSync(path.join(templatesDir, "domain-README.md"), TEMPLATE("domain-README.md"), "utf8");
+    fs.writeFileSync(path.join(templatesDir, ".claude-context"), TEMPLATE(".claude-context"), "utf8");
+
+    const cliPath = path.join(
+      path.dirname(import.meta.url.replace("file://", "")),
+      "cli.js",
+    );
+
+    // Select README (option 1), do dry run, then cancel
+    const result = spawnSync("node", [cliPath, "update-templates"], {
+      cwd: testDir,
+      stdio: "pipe",
+      timeout: 5000,
+      input: "1\ny\nn\n", // Select template 1, dry run yes, don't proceed
+    });
+
+    expect(result.status).toBe(0);
+    const output = result.stdout.toString();
+    
+    // More flexible checks for dry run output
+    expect(output).toMatch(/\[DRY RUN\]|dry run/i);
+    expect(output).toMatch(/Would create|create file/i);
+    expect(output).toMatch(/Cancelled|cancel/i);
+    
+    // Verify no actual changes were made
+    const readmePath = path.join(testDir, "README.md");
+    expect(fs.existsSync(readmePath)).toBe(false);
+  });
 });
