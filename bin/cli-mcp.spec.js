@@ -174,10 +174,237 @@ context7-test: npx -y @test/mcp - ✓ Connected`;
   });
 });
 
+describe("getExistingServerEnv", () => {
+  const mockGetExistingServerEnv = (mockFileSystem) => {
+    return (serverKey) => {
+      try {
+        const fs = mockFileSystem.fs;
+        const path = mockFileSystem.path;
+        const os = mockFileSystem.os;
+
+        const claudeSettingsPath = path.join(
+          os.homedir(),
+          ".claude",
+          "settings.json",
+        );
+        if (!fs.existsSync(claudeSettingsPath)) {
+          return {};
+        }
+
+        const settings = JSON.parse(
+          fs.readFileSync(claudeSettingsPath, "utf8"),
+        );
+        const serverConfig =
+          settings.mcpServers && settings.mcpServers[serverKey];
+
+        return serverConfig && serverConfig.env ? serverConfig.env : {};
+      } catch (error) {
+        return {};
+      }
+    };
+  };
+
+  test("returns environment variables for existing server", () => {
+    const mockFileSystem = {
+      fs: {
+        existsSync: () => true,
+        readFileSync: () =>
+          JSON.stringify({
+            mcpServers: {
+              context7: {
+                env: {
+                  CONTEXT7_API_KEY: "ctx7sk-test-key-12345",
+                },
+              },
+            },
+          }),
+      },
+      path: {
+        join: (...args) => args.join("/"),
+      },
+      os: {
+        homedir: () => "/mock/home",
+      },
+    };
+
+    const getExistingEnv = mockGetExistingServerEnv(mockFileSystem);
+    const result = getExistingEnv("context7");
+
+    expect(result).toEqual({
+      CONTEXT7_API_KEY: "ctx7sk-test-key-12345",
+    });
+  });
+
+  test("returns empty object when server doesn't exist", () => {
+    const mockFileSystem = {
+      fs: {
+        existsSync: () => true,
+        readFileSync: () =>
+          JSON.stringify({
+            mcpServers: {
+              other: { env: { OTHER_KEY: "value" } },
+            },
+          }),
+      },
+      path: {
+        join: (...args) => args.join("/"),
+      },
+      os: {
+        homedir: () => "/mock/home",
+      },
+    };
+
+    const getExistingEnv = mockGetExistingServerEnv(mockFileSystem);
+    const result = getExistingEnv("nonexistent");
+
+    expect(result).toEqual({});
+  });
+
+  test("returns empty object when settings file doesn't exist", () => {
+    const mockFileSystem = {
+      fs: {
+        existsSync: () => false,
+        readFileSync: () => {
+          throw new Error("File not found");
+        },
+      },
+      path: {
+        join: (...args) => args.join("/"),
+      },
+      os: {
+        homedir: () => "/mock/home",
+      },
+    };
+
+    const getExistingEnv = mockGetExistingServerEnv(mockFileSystem);
+    const result = getExistingEnv("context7");
+
+    expect(result).toEqual({});
+  });
+
+  test("returns empty object when JSON parsing fails", () => {
+    const mockFileSystem = {
+      fs: {
+        existsSync: () => true,
+        readFileSync: () => "invalid json",
+      },
+      path: {
+        join: (...args) => args.join("/"),
+      },
+      os: {
+        homedir: () => "/mock/home",
+      },
+    };
+
+    const getExistingEnv = mockGetExistingServerEnv(mockFileSystem);
+    const result = getExistingEnv("context7");
+
+    expect(result).toEqual({});
+  });
+
+  test("handles dual environment variable servers", () => {
+    const mockFileSystem = {
+      fs: {
+        existsSync: () => true,
+        readFileSync: () =>
+          JSON.stringify({
+            mcpServers: {
+              n8n: {
+                env: {
+                  N8N_API_URL: "http://localhost:5678",
+                  N8N_API_KEY: "n8n-api-key-123",
+                },
+              },
+            },
+          }),
+      },
+      path: {
+        join: (...args) => args.join("/"),
+      },
+      os: {
+        homedir: () => "/mock/home",
+      },
+    };
+
+    const getExistingEnv = mockGetExistingServerEnv(mockFileSystem);
+    const result = getExistingEnv("n8n");
+
+    expect(result).toEqual({
+      N8N_API_URL: "http://localhost:5678",
+      N8N_API_KEY: "n8n-api-key-123",
+    });
+  });
+
+  test("returns empty object when server has no env section", () => {
+    const mockFileSystem = {
+      fs: {
+        existsSync: () => true,
+        readFileSync: () =>
+          JSON.stringify({
+            mcpServers: {
+              filesystem: {
+                command: "npx",
+                args: [
+                  "-y",
+                  "@modelcontextprotocol/server-filesystem",
+                  "/path",
+                ],
+                // No env section
+              },
+            },
+          }),
+      },
+      path: {
+        join: (...args) => args.join("/"),
+      },
+      os: {
+        homedir: () => "/mock/home",
+      },
+    };
+
+    const getExistingEnv = mockGetExistingServerEnv(mockFileSystem);
+    const result = getExistingEnv("filesystem");
+
+    expect(result).toEqual({});
+  });
+});
+
 describe("handleExistingServer", () => {
-  const mockHandleExistingServer = (mockExecSync, mockConsoleLog) => {
+  const mockHandleExistingServer = (
+    mockExecSync,
+    mockConsoleLog,
+    mockGetExistingEnv,
+  ) => {
     return async (spec, askFn) => {
+      // Get existing environment variables to show user what's configured
+      const existingEnv = mockGetExistingEnv
+        ? mockGetExistingEnv(spec.key)
+        : {};
+
       mockConsoleLog(`  ⚠️  ${spec.title} is already configured`);
+
+      // Show existing API key(s) masked
+      if (spec.envVar && existingEnv[spec.envVar]) {
+        const maskKey = (s) => {
+          if (!s) return "";
+          if (s.length <= 2) return "…";
+          if (s.length <= 8) return s[0] + "…" + s.slice(-1);
+          return s.slice(0, 5) + "…" + s.slice(-3);
+        };
+        const maskedKey = maskKey(existingEnv[spec.envVar]);
+        mockConsoleLog(`     Current ${spec.envVar}: ${maskedKey}`);
+      }
+      if (spec.envVar2 && existingEnv[spec.envVar2]) {
+        const maskKey = (s) => {
+          if (!s) return "";
+          if (s.length <= 2) return "…";
+          if (s.length <= 8) return s[0] + "…" + s.slice(-1);
+          return s.slice(0, 5) + "…" + s.slice(-3);
+        };
+        const maskedKey = maskKey(existingEnv[spec.envVar2]);
+        mockConsoleLog(`     Current ${spec.envVar2}: ${maskedKey}`);
+      }
+
       const choice = await askFn(
         `What would you like to do? (k)eep existing, (r)emove and reinstall, (s)kip`,
         "k",
@@ -211,11 +438,13 @@ describe("handleExistingServer", () => {
   test("returns 'keep' when user chooses keep option", async () => {
     const mockExecSync = () => {};
     const mockConsoleLog = () => {};
+    const mockGetExistingEnv = () => ({});
     const mockAskFn = async () => "k";
 
     const handleExisting = mockHandleExistingServer(
       mockExecSync,
       mockConsoleLog,
+      mockGetExistingEnv,
     );
     const spec = { title: "Context7", key: "context7" };
 
@@ -226,11 +455,13 @@ describe("handleExistingServer", () => {
   test("returns 'keep' when user chooses default option", async () => {
     const mockExecSync = () => {};
     const mockConsoleLog = () => {};
+    const mockGetExistingEnv = () => ({});
     const mockAskFn = async () => "invalid-choice";
 
     const handleExisting = mockHandleExistingServer(
       mockExecSync,
       mockConsoleLog,
+      mockGetExistingEnv,
     );
     const spec = { title: "Context7", key: "context7" };
 
@@ -241,11 +472,13 @@ describe("handleExistingServer", () => {
   test("returns 'skip' when user chooses skip option", async () => {
     const mockExecSync = () => {};
     const mockConsoleLog = () => {};
+    const mockGetExistingEnv = () => ({});
     const mockAskFn = async () => "s";
 
     const handleExisting = mockHandleExistingServer(
       mockExecSync,
       mockConsoleLog,
+      mockGetExistingEnv,
     );
     const spec = { title: "Context7", key: "context7" };
 
@@ -256,11 +489,13 @@ describe("handleExistingServer", () => {
   test("returns 'reinstall' when remove succeeds", async () => {
     const mockExecSync = () => {}; // Successful removal
     const mockConsoleLog = () => {};
+    const mockGetExistingEnv = () => ({});
     const mockAskFn = async () => "r";
 
     const handleExisting = mockHandleExistingServer(
       mockExecSync,
       mockConsoleLog,
+      mockGetExistingEnv,
     );
     const spec = { title: "Context7", key: "context7" };
 
@@ -273,11 +508,13 @@ describe("handleExistingServer", () => {
       throw new Error("Remove failed");
     };
     const mockConsoleLog = () => {};
+    const mockGetExistingEnv = () => ({});
     const mockAskFn = async () => "remove";
 
     const handleExisting = mockHandleExistingServer(
       mockExecSync,
       mockConsoleLog,
+      mockGetExistingEnv,
     );
     const spec = { title: "Context7", key: "context7" };
 
@@ -288,11 +525,13 @@ describe("handleExistingServer", () => {
   test("handles 'remove' full word choice", async () => {
     const mockExecSync = () => {};
     const mockConsoleLog = () => {};
+    const mockGetExistingEnv = () => ({});
     const mockAskFn = async () => "remove";
 
     const handleExisting = mockHandleExistingServer(
       mockExecSync,
       mockConsoleLog,
+      mockGetExistingEnv,
     );
     const spec = { title: "Supabase", key: "supabase" };
 
@@ -303,10 +542,12 @@ describe("handleExistingServer", () => {
   test("handles case insensitive choices", async () => {
     const mockExecSync = () => {};
     const mockConsoleLog = () => {};
+    const mockGetExistingEnv = () => ({});
 
     const handleExisting = mockHandleExistingServer(
       mockExecSync,
       mockConsoleLog,
+      mockGetExistingEnv,
     );
     const spec = { title: "GitHub", key: "github" };
 
@@ -314,6 +555,89 @@ describe("handleExistingServer", () => {
     expect(await handleExisting(spec, async () => "K")).toBe("keep");
     expect(await handleExisting(spec, async () => "S")).toBe("skip");
     expect(await handleExisting(spec, async () => "R")).toBe("reinstall");
+  });
+
+  test("displays masked API key when server has environment variable", async () => {
+    const mockExecSync = () => {};
+    const consoleMessages = [];
+    const mockConsoleLog = (message) => consoleMessages.push(message);
+    const mockGetExistingEnv = (key) =>
+      key === "context7" ? { CONTEXT7_API_KEY: "ctx7sk-test-key-12345" } : {};
+    const mockAskFn = async () => "k";
+
+    const handleExisting = mockHandleExistingServer(
+      mockExecSync,
+      mockConsoleLog,
+      mockGetExistingEnv,
+    );
+    const spec = {
+      title: "Context7",
+      key: "context7",
+      envVar: "CONTEXT7_API_KEY",
+    };
+
+    await handleExisting(spec, mockAskFn);
+
+    expect(consoleMessages).toContain("  ⚠️  Context7 is already configured");
+    expect(consoleMessages).toContain(
+      "     Current CONTEXT7_API_KEY: ctx7s…345",
+    );
+  });
+
+  test("displays masked API keys for dual environment variable servers", async () => {
+    const mockExecSync = () => {};
+    const consoleMessages = [];
+    const mockConsoleLog = (message) => consoleMessages.push(message);
+    const mockGetExistingEnv = (key) =>
+      key === "n8n"
+        ? {
+            N8N_API_URL: "http://localhost:5678/api/v1",
+            N8N_API_KEY: "n8n-key-123456789",
+          }
+        : {};
+    const mockAskFn = async () => "k";
+
+    const handleExisting = mockHandleExistingServer(
+      mockExecSync,
+      mockConsoleLog,
+      mockGetExistingEnv,
+    );
+    const spec = {
+      title: "n8n",
+      key: "n8n",
+      envVar: "N8N_API_URL",
+      envVar2: "N8N_API_KEY",
+    };
+
+    await handleExisting(spec, mockAskFn);
+
+    expect(consoleMessages).toContain("  ⚠️  n8n is already configured");
+    expect(consoleMessages).toContain("     Current N8N_API_URL: http:…/v1");
+    expect(consoleMessages).toContain("     Current N8N_API_KEY: n8n-k…789");
+  });
+
+  test("does not display keys when server has no environment variables", async () => {
+    const mockExecSync = () => {};
+    const consoleMessages = [];
+    const mockConsoleLog = (message) => consoleMessages.push(message);
+    const mockGetExistingEnv = () => ({});
+    const mockAskFn = async () => "k";
+
+    const handleExisting = mockHandleExistingServer(
+      mockExecSync,
+      mockConsoleLog,
+      mockGetExistingEnv,
+    );
+    const spec = { title: "File System", key: "filesystem" };
+
+    await handleExisting(spec, mockAskFn);
+
+    expect(consoleMessages).toContain(
+      "  ⚠️  File System is already configured",
+    );
+    expect(
+      consoleMessages.filter((msg) => msg.includes("Current")).length,
+    ).toBe(0);
   });
 });
 
