@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { spawnSync, spawn } from "node:child_process";
+import { spawnSync } from "node:child_process";
 
 // Import functions for integration testing
 const writeJsonPretty = (p, obj) => {
@@ -17,7 +17,8 @@ const TEMPLATES_DIR = path.join(
 );
 const TEMPLATE = (f) => fs.readFileSync(path.join(TEMPLATES_DIR, f), "utf8");
 
-// Helper function for interactive CLI testing
+// Helper function for interactive CLI testing (currently unused)
+/*
 const runInteractiveCLI = (cliPath, args, input, cwd, timeout = 10000) => {
   return new Promise((resolve, reject) => {
     const child = spawn("node", [cliPath, ...args], {
@@ -67,6 +68,7 @@ const runInteractiveCLI = (cliPath, args, input, cwd, timeout = 10000) => {
     }
   });
 };
+*/
 
 // Test directory setup
 let testDir;
@@ -386,7 +388,7 @@ describe("scaffoldProjectFiles integration", () => {
     }
   });
 
-  test("REQ-002: scaffolds agent definition files", () => {
+  test("REQ-003 — scaffolds agent definition files", () => {
     const projectDir = testDir;
     const agentsDir = path.join(projectDir, ".claude", "agents");
 

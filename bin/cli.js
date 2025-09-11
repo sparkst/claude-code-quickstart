@@ -135,7 +135,7 @@ function getExistingServerEnv(serverKey) {
     const serverConfig = settings.mcpServers && settings.mcpServers[serverKey];
 
     return serverConfig && serverConfig.env ? serverConfig.env : {};
-  } catch (_error) {
+  } catch {
     return {};
   }
 }
@@ -156,7 +156,12 @@ const SERVER_SPECS = [
     envVar: "BRAVE_API_KEY",
     helpUrl: "https://brave.com/search/api/",
     command: "npx",
-    args: () => ["-y", "@brave/brave-search-mcp-server"],
+    args: () => [
+      "-y",
+      "@brave/brave-search-mcp-server",
+      "--transport",
+      "stdio",
+    ],
   },
   {
     key: "supabase",
@@ -177,7 +182,7 @@ const SERVER_SPECS = [
     helpUrl:
       "https://docs.tavily.com/documentation/api-reference/authentication",
     command: "npx",
-    args: () => ["-y", "@tavily/mcp"],
+    args: () => ["-y", "tavily-mcp"],
   },
   {
     key: "n8n",
@@ -208,39 +213,6 @@ const SERVER_SPECS = [
     args: () => ["-y", "@cloudflare/mcp-server-cloudflare", "init"],
   },
 ];
-
-async function promptPathServer(spec, servers, askFn) {
-  const existingEntry = servers[spec.key] || {};
-  const currentPath =
-    (existingEntry.args && existingEntry.args[2]) || process.cwd();
-  console.log(`\n• ${spec.title} → ${spec.helpUrl}`);
-  const input = await askFn(
-    "Directory path for file system access",
-    currentPath
-  );
-
-  if (!input || input === currentPath) {
-    if (existingEntry.command) {
-      console.log(`  (kept existing ${spec.title} path: ${currentPath})`);
-      return;
-    }
-  }
-
-  if (input === "-") {
-    if (servers[spec.key]) {
-      delete servers[spec.key];
-      console.log(`  (disabled ${spec.title})`);
-    }
-    return;
-  }
-
-  const path = input || currentPath;
-  servers[spec.key] = {
-    command: spec.command,
-    args: spec.args(path),
-  };
-  console.log(`  (configured ${spec.title} with path: ${path})`);
-}
 
 // Command-focused prompt functions that return configuration objects
 async function promptPathServerForCommand(spec, askFn) {
@@ -370,121 +342,6 @@ async function promptStandardServerForCommand(spec, askFn) {
   };
 }
 
-async function promptWranglerServer(spec, servers, askFn) {
-  console.log(`\n• ${spec.title} → ${spec.helpUrl}`);
-  console.log(
-    "  ⚠️  Requires: npx wrangler login (run separately before using)"
-  );
-  const input = await askFn("Enable Cloudflare MCP server? (y/N)", "n");
-
-  if (input.toLowerCase() !== "y") {
-    if (servers[spec.key]) delete servers[spec.key];
-    console.log(`  (skipped ${spec.title})`);
-    return;
-  }
-
-  servers[spec.key] = {
-    command: spec.command,
-    args: spec.args(),
-  };
-  console.log(
-    `  (enabled ${spec.title} - remember to run: npx wrangler login)`
-  );
-}
-
-async function promptDualEnvServer(spec, servers, existingEnv, askFn) {
-  const currentVal1 = existingEnv[spec.envVar] || "";
-  const currentVal2 = existingEnv[spec.envVar2] || "";
-  const shown1 = currentVal1 || "";
-  const shown2 = currentVal2 ? maskKey(currentVal2) : "";
-
-  console.log(`\n• ${spec.title} → ${spec.helpUrl}`);
-  const input1 = await askFn(
-    `${spec.envVar} (e.g., http://localhost:5678/api/v1)`,
-    shown1
-  );
-
-  if (!input1) {
-    if (currentVal1 && currentVal2) {
-      console.log(`  (kept existing ${spec.title} configuration)`);
-      return;
-    } else {
-      if (servers[spec.key]) delete servers[spec.key];
-      console.log(`  (skipped ${spec.title})`);
-      return;
-    }
-  }
-
-  if (input1 === "-") {
-    if (servers[spec.key]) {
-      delete servers[spec.key];
-      console.log(`  (disabled ${spec.title})`);
-    }
-    return;
-  }
-
-  const input2 = await askFn(`${spec.envVar2}`, shown2);
-  if (!input2) {
-    console.log(`  (skipped ${spec.title} - API key required)`);
-    return;
-  }
-
-  servers[spec.key] = {
-    command: spec.command,
-    args: spec.args(),
-    env: {},
-  };
-  servers[spec.key].env[spec.envVar] = input1;
-  servers[spec.key].env[spec.envVar2] = input2;
-  console.log(`  (saved ${spec.title})`);
-}
-
-async function promptStandardServer(spec, servers, existingEnv, askFn) {
-  const currentVal = existingEnv[spec.envVar] || "";
-  const shown = currentVal ? maskKey(currentVal) : "";
-  const promptText =
-    spec.envVar === "POSTGRES_CONNECTION_STRING"
-      ? "PostgreSQL connection string (e.g., postgresql://user:pass@localhost/db)"
-      : spec.envVar;
-  console.log(
-    `\n• ${spec.title} ${spec.envVar ? "API key" : ""} → ${spec.helpUrl}`
-  );
-  const input = await askFn(promptText, shown);
-
-  if (!input) {
-    if (currentVal) {
-      // keep as-is
-      console.log(`  (kept existing ${spec.title} key)`);
-      return;
-    } else {
-      // not configured → ensure it's absent
-      if (servers[spec.key]) delete servers[spec.key];
-      console.log(`  (skipped ${spec.title})`);
-      return;
-    }
-  }
-
-  if (input === "-") {
-    if (servers[spec.key]) {
-      delete servers[spec.key];
-      console.log(`  (disabled ${spec.title})`);
-    } else {
-      console.log(`  (no ${spec.title} entry to disable)`);
-    }
-    return;
-  }
-
-  // Set/update server with provided key
-  const entry = {
-    command: spec.command,
-    args: typeof spec.args === "function" ? spec.args(input) : spec.args,
-    env: {},
-  };
-  entry.env[spec.envVar] = input;
-  servers[spec.key] = entry;
-  console.log(`  (saved ${spec.title})`);
-}
-
 async function configureClaudeCode() {
   const { execSync } = require("node:child_process");
 
@@ -568,7 +425,7 @@ async function configureClaudeCode() {
   try {
     console.log("\n🔍 Verifying MCP server installation...");
     execSync("claude mcp list", { stdio: "inherit" });
-  } catch (_error) {
+  } catch {
     console.log(
       "⚠️  Could not verify installation. Run `claude mcp list` to check manually."
     );
@@ -1169,7 +1026,7 @@ function showAgentRegistrationGuide() {
           const content = fs.readFileSync(agentPath, "utf8");
           // Validate agent has proper YAML frontmatter with name field
           return content.startsWith("---") && content.includes("name:");
-        } catch (_error) {
+        } catch {
           console.log(`⚠️  Skipping invalid agent file: ${f}`);
           return false;
         }

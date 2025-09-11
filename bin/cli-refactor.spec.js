@@ -243,7 +243,7 @@ describe("Function Complexity Reduction", () => {
     };
 
     // Verify approximate line counts (this is a design verification test)
-    for (const [func, expectedLines] of Object.entries(expectedSizes)) {
+    for (const [, expectedLines] of Object.entries(expectedSizes)) {
       expect(expectedLines).toBeLessThan(50); // All functions under 50 lines
     }
 

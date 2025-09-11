@@ -35,6 +35,28 @@ describe("New MCP Server Configurations", () => {
       ],
     },
     {
+      key: "tavily",
+      title: "Tavily",
+      envVar: "TAVILY_API_KEY",
+      helpUrl:
+        "https://docs.tavily.com/documentation/api-reference/authentication",
+      command: "npx",
+      args: () => ["-y", "tavily-mcp"],
+    },
+    {
+      key: "brave-search",
+      title: "Brave Search",
+      envVar: "BRAVE_API_KEY",
+      helpUrl: "https://brave.com/search/api/",
+      command: "npx",
+      args: () => [
+        "-y",
+        "@brave/brave-search-mcp-server",
+        "--transport",
+        "stdio",
+      ],
+    },
+    {
       key: "cloudflare",
       title: "Cloudflare",
       promptType: "wrangler",
@@ -45,7 +67,7 @@ describe("New MCP Server Configurations", () => {
     },
   ];
 
-  test("n8n server has two environment variables", () => {
+  test("REQ-001 — n8n server has two environment variables", () => {
     const n8n = newServers.find((s) => s.key === "n8n");
     expect(n8n.envVar).toBe("N8N_API_URL");
     expect(n8n.envVar2).toBe("N8N_API_KEY");
@@ -89,6 +111,18 @@ describe("New MCP Server Configurations", () => {
     ]);
   });
 
+  test("REQ-001 — Tavily server uses correct package name", () => {
+    const tavily = newServers.find((s) => s.key === "tavily");
+    expect(tavily.args()).toContain("tavily-mcp");
+    expect(tavily.args()).not.toContain("@tavily/mcp");
+  });
+
+  test("REQ-001 — Brave Search server includes stdio transport", () => {
+    const brave = newServers.find((s) => s.key === "brave-search");
+    expect(brave.args()).toContain("--transport");
+    expect(brave.args()).toContain("stdio");
+  });
+
   test("all new servers have required properties", () => {
     for (const server of newServers) {
       expect(server.key).toBeDefined();
@@ -114,7 +148,7 @@ describe("checkMcpServerExists", () => {
           }
         }
         return false;
-      } catch (error) {
+      } catch {
         // If we can't check, assume it doesn't exist
         return false;
       }
@@ -124,7 +158,7 @@ describe("checkMcpServerExists", () => {
   test("returns true when server exists in output", () => {
     const mockOutput = `Checking MCP server health...
 
-brave-search: npx -y @brave/brave-search-mcp-server - ✗ Failed to connect
+brave-search: npx -y @brave/brave-search-mcp-server --transport stdio - ✗ Failed to connect
 context7: npx -y @upstash/context7-mcp - ✓ Connected
 supabase: npx -y @supabase/mcp-server-supabase - ✓ Connected`;
 
@@ -138,7 +172,7 @@ supabase: npx -y @supabase/mcp-server-supabase - ✓ Connected`;
   test("returns false when server does not exist in output", () => {
     const mockOutput = `Checking MCP server health...
 
-brave-search: npx -y @brave/brave-search-mcp-server - ✗ Failed to connect
+brave-search: npx -y @brave/brave-search-mcp-server --transport stdio - ✗ Failed to connect
 context7: npx -y @upstash/context7-mcp - ✓ Connected`;
 
     const checkExists = mockCheckMcpServerExists(mockOutput);
@@ -198,7 +232,7 @@ describe("getExistingServerEnv", () => {
           settings.mcpServers && settings.mcpServers[serverKey];
 
         return serverConfig && serverConfig.env ? serverConfig.env : {};
-      } catch (error) {
+      } catch {
         return {};
       }
     };
