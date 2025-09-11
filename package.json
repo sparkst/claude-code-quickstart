@@ -1,6 +1,6 @@
 {
   "name": "claude-code-quickstart",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Sparkry.AI quickstart for Claude Code + VS Code with Sabrina-style rules, safe permissions, and MCP servers pre-wired.",
   "bin": {
     "claude-code-quickstart": "bin/cli.js"
@@ -8,7 +8,7 @@
   "scripts": {
     "postinstall": "node bin/postinstall.js",
     "test": "vitest",
-    "test:run": "vitest run", 
+    "test:run": "vitest run",
     "test:watch": "vitest --watch",
     "lint": "eslint *.js bin/*.js",
     "format": "prettier --write *.js bin/*.js",
@@ -16,7 +16,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.35.0",
-    "eslint": "^9.35.0", 
+    "eslint": "^9.35.0",
     "prettier": "^3.6.2",
     "vitest": "^2.1.0"
   },
