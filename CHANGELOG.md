@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] - 2025-09-11
+
+### Added
+- **Multi-Layered Testing Infrastructure (REQ-004, REQ-005, REQ-006, REQ-007, REQ-008)**
+  - Created comprehensive `test/utils/test-constants.js` with parameterized values to eliminate hardcoded literals
+  - Implemented 5 TDD-compliant utility modules with minimal stubs supporting meaningful failures
+  - Added 82 new tests covering Unit → Integration → E2E → Performance → Error Boundary layers
+  - Created macOS-specific error boundary testing for permissions, Gatekeeper, and file system behaviors
+  - Added performance validation framework with <500ms CLI responsiveness thresholds
+
+### Fixed
+- **CLAUDE.md Standards Compliance (REQ-101, REQ-102, REQ-103, REQ-104)**
+  - Eliminated all hardcoded literals from test files per Testing Best Practice #1
+  - Fixed test utilities to provide meaningful TDD failures rather than import errors
+  - Resolved missing function exports causing test execution failures
+  - Ensured all test titles include proper REQ-ID references for traceability
+
+### Changed
+- **Test Organization (REQ-105)**
+  - Restructured test directory with clear separation: utils/, integration/, e2e/, performance/, error-boundaries/
+  - Maintained macOS testing focus with platform-specific path handling and permissions
+  - Updated test execution to support TDD workflow with meaningful failure guidance
+
+### Documentation
+- Added comprehensive `test/README.md` documenting testing infrastructure patterns and TDD methodology
+- Updated root README.md with testing layer descriptions and developer workflow guidance
+- Enhanced project structure documentation to reflect testing architecture
+
+### Technical
+- All tests structured for TDD: 156 total (74 existing passing + 82 new meaningful TDD failures) ✅
+- Zero linting warnings maintained ✅  
+- Full parameterization compliance (no hardcoded literals) ✅
+- Proper TDD methodology with requirements.lock pattern ✅
+
 ## [1.0.2] - 2025-01-11
 
 ### Fixed

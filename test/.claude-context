@@ -1,0 +1,33 @@
+Domain: Testing Infrastructure
+Purpose: Multi-layered TDD-compliant testing with parameterized constants and macOS-specific error boundary testing
+
+Key Concepts:
+- Parameterized Constants: All test values come from test-constants.js to eliminate hardcoded literals per CLAUDE.md
+- TDD Methodology: Tests written to fail meaningfully before implementation exists
+- REQ-ID Traceability: Every test title must reference requirement IDs from requirements.lock.md
+- Testing Layers: Unit → Integration → E2E → Performance → Error Boundaries
+- macOS Focus: Platform-specific paths, permissions, and error handling
+
+Important Files:
+- utils/test-constants.js: All parameterized values (performance thresholds, paths, server configs)
+- utils/test-helpers.js: Basic utilities for directory creation and config management  
+- utils/performance-helpers.js: Timing measurements and CLI responsiveness validation
+- utils/error-simulation-helpers.js: Error testing and macOS permission simulation
+- utils/real-environment-helpers.js: Temp directory management and cleanup
+- utils/e2e-helpers.js: End-to-end workflow testing utilities
+
+Common Tasks:
+- "Add new test": Start with REQ-ID in title, use parameterized constants from test-constants.js
+- "Create test utility": Implement minimal stub that provides meaningful TDD failure
+- "Fix hardcoded literal": Move value to test-constants.js with descriptive name and comment
+- "Add performance test": Use PERFORMANCE_THRESHOLDS constants with <500ms CLI requirements
+- "Add macOS error test": Use MACOS_PERMISSIONS and MACOS_PATHS for platform-specific testing
+
+Gotchas:
+- Never use hardcoded literals - everything must be parameterized in test-constants.js
+- Test utilities should be minimal stubs that fail meaningfully, not full implementations
+- All performance thresholds are based on CLI responsiveness needs, not arbitrary values
+- macOS-specific testing focuses on real platform behaviors (permissions, Gatekeeper, paths)
+- Tests must reference REQ-IDs from requirements.lock.md for proper traceability
+
+Dependencies: requirements/requirements.lock.md (REQ-ID definitions), bin/cli.js (implementation under test), Mocha test framework

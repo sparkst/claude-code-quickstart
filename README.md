@@ -32,9 +32,29 @@ This will:
 git clone <repository>
 cd claude-code-quickstart
 npm install
-npm test              # Run all tests (74 tests)
+npm test              # Run all tests (156 tests: 74 passing + 82 meaningful TDD failures)
 npm run lint          # ESLint checks (0 warnings)
 npm run format        # Prettier formatting
+```
+
+#### Testing Infrastructure
+The project follows strict TDD methodology with a multi-layered testing architecture:
+
+- **Unit Tests** — Individual function testing with parameterized constants
+- **Integration Tests** — Real environment MCP server integration  
+- **E2E Tests** — Full CLI workflow validation
+- **Performance Tests** — <500ms CLI responsiveness validation
+- **macOS Error Boundary Tests** — Platform-specific error handling
+
+Test utilities are designed to support TDD flow with meaningful failures that guide implementation:
+```bash
+# Test constants (parameterized to avoid hardcoded literals)
+test/utils/test-constants.js
+
+# Test execution and debugging
+npm test -- --verbose           # Detailed test output
+npm test -- --watch             # Watch mode for TDD
+npm test -- test/unit/          # Run specific test category
 ```
 
 ## Architecture Overview
@@ -52,18 +72,30 @@ For detailed implementation guidelines, see [CLAUDE.md](./CLAUDE.md).
 
 ```
 ├── bin/
-│   ├── cli.js                  # Main CLI implementation
+│   ├── cli.js                  # Main CLI implementation  
 │   ├── cli-mcp.spec.js        # MCP server tests
 │   └── cli.integration.spec.js # Integration tests
-├── templates/                  # Project scaffolding templates
-│   ├── CLAUDE.md              # TDD methodology template
-│   ├── README.md              # Progressive docs template
-│   └── *.json                 # Configuration templates
-├── requirements/               # Requirements with REQ IDs
-│   ├── current.md             # Active requirements
-│   └── requirements.lock.md   # Snapshot for current task
+├── test/                       # TDD-compliant test infrastructure
+│   ├── utils/                 # Test utilities with parameterized constants
+│   │   ├── test-constants.js  # Parameterized values (no hardcoded literals)
+│   │   ├── test-helpers.js    # Basic test utilities
+│   │   ├── performance-helpers.js # Performance measurement utilities
+│   │   ├── error-simulation-helpers.js # Error testing utilities
+│   │   ├── real-environment-helpers.js # Environment testing
+│   │   └── e2e-helpers.js     # End-to-end test utilities
+│   ├── integration/           # Real environment testing
+│   ├── e2e/                  # End-to-end workflow tests
+│   ├── performance/          # <500ms responsiveness tests
+│   └── error-boundaries/     # macOS-specific error handling tests
+├── templates/                 # Project scaffolding templates
+│   ├── CLAUDE.md             # TDD methodology template
+│   ├── README.md             # Progressive docs template
+│   └── *.json                # Configuration templates
+├── requirements/              # Requirements with REQ IDs
+│   ├── current.md            # Active requirements
+│   └── requirements.lock.md  # Snapshot for current task
 ├── .claude/
-│   ├── agents/                # Agent definitions
-│   └── settings.json          # Claude Code configuration
-└── CHANGELOG.md               # Version history and changes
+│   ├── agents/               # Agent definitions
+│   └── settings.json         # Claude Code configuration
+└── CHANGELOG.md              # Version history and changes
 ```
