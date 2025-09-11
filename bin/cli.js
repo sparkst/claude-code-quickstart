@@ -81,15 +81,6 @@ function formatExistingValue(envVarName, value) {
   return shouldMaskEnvVar(envVarName) ? maskKey(value) : value;
 }
 
-function ensureServersPreserved(existing) {
-  const out = existing && typeof existing === "object" ? { ...existing } : {};
-  out.mcpServers =
-    out.mcpServers && typeof out.mcpServers === "object"
-      ? { ...out.mcpServers }
-      : {};
-  return out;
-}
-
 function buildClaudeMcpCommand(spec, scope, envVars, extraArgs = []) {
   const parts = ["claude", "mcp", "add"];
 
@@ -125,27 +116,6 @@ function buildClaudeMcpCommand(spec, scope, envVars, extraArgs = []) {
   return parts.join(" ");
 }
 
-function checkMcpServerExists(serverKey) {
-  try {
-    const result = execSync("claude mcp list", {
-      encoding: "utf8",
-      stdio: "pipe",
-    });
-    // Parse the text output to find the server
-    // Format: "server-name: command - ✓ Connected" or "server-name: command - ✗ Failed"
-    const lines = result.split("\n");
-    for (const line of lines) {
-      if (line.startsWith(serverKey + ":")) {
-        return true;
-      }
-    }
-    return false;
-  } catch (error) {
-    // If we can't check, assume it doesn't exist
-    return false;
-  }
-}
-
 function getExistingServerEnv(serverKey) {
   try {
     const fs = require("fs");
@@ -165,51 +135,8 @@ function getExistingServerEnv(serverKey) {
     const serverConfig = settings.mcpServers && settings.mcpServers[serverKey];
 
     return serverConfig && serverConfig.env ? serverConfig.env : {};
-  } catch (error) {
+  } catch (_error) {
     return {};
-  }
-}
-
-async function handleExistingServer(spec, askFn) {
-  // Get existing environment variables to show user what's configured
-  const existingEnv = getExistingServerEnv(spec.key);
-
-  console.log(`  ⚠️  ${spec.title} is already configured`);
-
-  // Show existing API key(s) masked
-  if (spec.envVar && existingEnv[spec.envVar]) {
-    const maskedKey = maskKey(existingEnv[spec.envVar]);
-    console.log(`     Current ${spec.envVar}: ${maskedKey}`);
-  }
-  if (spec.envVar2 && existingEnv[spec.envVar2]) {
-    const maskedKey = maskKey(existingEnv[spec.envVar2]);
-    console.log(`     Current ${spec.envVar2}: ${maskedKey}`);
-  }
-
-  const choice = await askFn(
-    `What would you like to do? (k)eep existing, (r)emove and reinstall, (s)kip`,
-    "k"
-  );
-
-  switch (choice.toLowerCase()) {
-    case "r":
-    case "remove":
-      console.log(`  🗑️  Removing existing ${spec.title}...`);
-      try {
-        execSync(`claude mcp remove ${spec.key}`, { stdio: "pipe" });
-        console.log(`  ✅ ${spec.title} removed successfully`);
-        return "reinstall";
-      } catch (error) {
-        console.log(`  ❌ Failed to remove ${spec.title}: ${error.message}`);
-        return "skip";
-      }
-    case "s":
-    case "skip":
-      return "skip";
-    case "k":
-    case "keep":
-    default:
-      return "keep";
   }
 }
 
@@ -641,7 +568,7 @@ async function configureClaudeCode() {
   try {
     console.log("\n🔍 Verifying MCP server installation...");
     execSync("claude mcp list", { stdio: "inherit" });
-  } catch (error) {
+  } catch (_error) {
     console.log(
       "⚠️  Could not verify installation. Run `claude mcp list` to check manually."
     );
@@ -723,35 +650,11 @@ function scaffoldProjectFiles() {
     );
   }
 
-  // Agent definitions directory
-  const agentsDir = path.join(PROJ_CLAUDE_DIR, "agents");
-  fs.mkdirSync(agentsDir, { recursive: true });
-
-  // Copy all agent definition files from source
-  const sourceAgentsDir = path.join(__dirname, "..", ".claude", "agents");
-  if (fs.existsSync(sourceAgentsDir)) {
-    const agentFiles = fs
-      .readdirSync(sourceAgentsDir)
-      .filter((f) => f.endsWith(".md"));
-
-    for (const agentFile of agentFiles) {
-      const sourcePath = path.join(sourceAgentsDir, agentFile);
-      const targetPath = path.join(agentsDir, agentFile);
-
-      if (!fs.existsSync(targetPath)) {
-        const agentContent = fs.readFileSync(sourcePath, "utf8");
-        fs.writeFileSync(targetPath, agentContent, "utf8");
-        console.log(
-          `• .claude/agents/${agentFile} created (specialized agent)`
-        );
-      }
-    }
-  }
-
-  // Install agents to global Claude directory for Task tool discovery
+  // Install agents to global Claude directory for /agents command discovery
   const globalAgentsDir = path.join(GLOBAL_DIR, "agents");
   fs.mkdirSync(globalAgentsDir, { recursive: true });
 
+  const sourceAgentsDir = path.join(__dirname, "..", ".claude", "agents");
   if (fs.existsSync(sourceAgentsDir)) {
     const agentFiles = fs
       .readdirSync(sourceAgentsDir)
@@ -801,14 +704,12 @@ function scaffoldProjectFiles() {
 
     // Provide user instructions for agent registration
     console.log("\n🤖 Agent Registration:");
-    console.log(
-      "• Agents are now available in ~/.claude/agents/ and .claude/agents/"
-    );
+    console.log("• Agents installed globally in ~/.claude/agents/");
     console.log("• To register agents with Claude Code, run: claude");
     console.log("• Then type: /agents");
     console.log("• Use the interactive menu to enable your custom agents");
     console.log(
-      "• After registration, you can use: Task tool with subagent_type: 'planner', 'test-writer', etc."
+      "• Agents will be available across all your Claude Code projects"
     );
   }
 
@@ -1268,7 +1169,7 @@ function showAgentRegistrationGuide() {
           const content = fs.readFileSync(agentPath, "utf8");
           // Validate agent has proper YAML frontmatter with name field
           return content.startsWith("---") && content.includes("name:");
-        } catch (error) {
+        } catch (_error) {
           console.log(`⚠️  Skipping invalid agent file: ${f}`);
           return false;
         }
