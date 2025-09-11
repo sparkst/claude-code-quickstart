@@ -8,10 +8,16 @@
   "scripts": {
     "postinstall": "node bin/postinstall.js",
     "test": "vitest",
-    "test:run": "vitest run",
-    "test:watch": "vitest --watch"
+    "test:run": "vitest run", 
+    "test:watch": "vitest --watch",
+    "lint": "eslint *.js bin/*.js",
+    "format": "prettier --write *.js bin/*.js",
+    "format:check": "prettier --check *.js bin/*.js"
   },
   "devDependencies": {
+    "@eslint/js": "^9.35.0",
+    "eslint": "^9.35.0", 
+    "prettier": "^3.6.2",
     "vitest": "^2.1.0"
   },
   "keywords": [
@@ -34,5 +40,8 @@
     "scripts/",
     "README.md",
     "LICENSE"
-  ]
+  ],
+  "dependencies": {
+    "claude-code-quickstart": "file:claude-code-quickstart-1.0.0.tgz"
+  }
 }

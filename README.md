@@ -1,44 +1,49 @@
-# claude-code-quickstart · Sparkry.AI
+# Project Name
 
-Local-first setup for **Claude Code + VS Code** (Sabrina-style):
-- Ask/Plan before changing anything
-- **TDD** (fail test → implement)
-- Small, reviewable diffs
-- **Security-forward** permissions (deny secrets, ask to edit/run)
+## Mental Model
+Brief description of what this system does and its primary purpose.
 
-## Quick start
+## Key Entry Points
+- `src/auth/` - User authentication and authorization
+- `src/api/` - HTTP API endpoints  
+- `src/core/` - Business logic and domain models
+- `src/ui/` - User interface components
 
+## Getting Started
+
+### Prerequisites
+- Node.js 18+ 
+- npm or yarn
+
+### Development Setup
 ```bash
-npm i -g claude-code-quickstart          # interactive postinstall if TTY
-# Or run later:
-npx claude-code-quickstart               # guided setup (user scope)
-# Optional Mac bootstrap (Node/VS Code/Claude CLI):
-"$(npm root -g)"/claude-code-quickstart/scripts/setup-claude-mac.sh
-# Initialize the current repo (CLAUDE.md + .claude/ files):
-npx claude-code-quickstart init
-# Update templates to latest versions (safe with backups):
-npx claude-code-quickstart update-templates
+npm install
+npm run dev
 ```
 
-## Commands
+### Testing
+```bash
+npm test              # Run all tests
+npm run test:watch    # Watch mode
+npm run test:coverage # Coverage report
+```
 
-### `init` (default)
-Sets up Claude Code MCP servers and scaffolds project files (CLAUDE.md, README.md, .claude/ templates).
+## Architecture Overview  
 
-### `update-templates`
-Updates existing templates to their latest versions with interactive selection:
-- ✅ **Safe**: Creates automatic backups before changes
-- 🎯 **Selective**: Choose which templates to update
-- 🔍 **Smart detection**: Identifies identical, outdated, missing, and customized files
-- 🧪 **Dry run**: Preview changes before applying
-- ↩️ **Rollback**: Easy restoration from backups
+This project follows domain-driven design principles with clear separation of concerns. Each domain has its own directory with README.md explaining its purpose and boundaries.
 
-Detects template states:
-- **Identical** ✅ - No changes needed
-- **Outdated** ⚠️ - Can be safely updated  
-- **Customized** 🔧 - Manual review recommended
-- **Missing** ❌ - Will be created
+For detailed implementation guidelines, see [CLAUDE.md](./CLAUDE.md).
 
-### `help`
-Shows usage information and available commands.
+## Project Structure
 
+```
+src/
+├── README.md           # This file
+├── CLAUDE.md           # Development guidelines  
+├── auth/               # Authentication domain
+├── api/                # HTTP API layer
+├── core/               # Business logic
+├── ui/                 # User interface
+├── shared/             # Shared utilities
+└── tests/              # Integration tests
+```

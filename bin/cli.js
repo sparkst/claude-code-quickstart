@@ -27,7 +27,7 @@ const rl = readline.createInterface({
 function ask(q, def = "") {
   const prompt = def ? `${q} [${def}] ` : `${q} `;
   return new Promise((res) =>
-    rl.question(prompt, (a) => res((a || "").trim())),
+    rl.question(prompt, (a) => res((a || "").trim()))
   );
 }
 
@@ -69,7 +69,7 @@ function shouldMaskEnvVar(envVarName) {
   if (!envVarName) return true;
   const name = envVarName.toLowerCase();
   // Don't mask URLs and endpoints
-  if (name.includes('url') || name.includes('endpoint')) {
+  if (name.includes("url") || name.includes("endpoint")) {
     return false;
   }
   // Mask keys, tokens, secrets, and anything else by default for security
@@ -155,7 +155,7 @@ function getExistingServerEnv(serverKey) {
     const claudeSettingsPath = path.join(
       os.homedir(),
       ".claude",
-      "settings.json",
+      "settings.json"
     );
     if (!fs.existsSync(claudeSettingsPath)) {
       return {};
@@ -188,7 +188,7 @@ async function handleExistingServer(spec, askFn) {
 
   const choice = await askFn(
     `What would you like to do? (k)eep existing, (r)emove and reinstall, (s)kip`,
-    "k",
+    "k"
   );
 
   switch (choice.toLowerCase()) {
@@ -253,14 +253,6 @@ const SERVER_SPECS = [
     args: () => ["-y", "@tavily/mcp"],
   },
   {
-    key: "github",
-    title: "GitHub",
-    envVar: "GITHUB_PERSONAL_ACCESS_TOKEN",
-    helpUrl: "https://github.com/settings/tokens",
-    command: "npx",
-    args: () => ["-y", "@modelcontextprotocol/server-github"],
-  },
-  {
     key: "n8n",
     title: "n8n (Recommended)",
     envVar: "N8N_API_URL",
@@ -280,18 +272,6 @@ const SERVER_SPECS = [
     args: (val) => ["-y", "@modelcontextprotocol/server-postgres", val],
   },
   {
-    key: "filesystem",
-    title: "File System",
-    promptType: "path",
-    helpUrl: "https://modelcontextprotocol.io/docs/servers/filesystem",
-    command: "npx",
-    args: (val) => [
-      "-y",
-      "@modelcontextprotocol/server-filesystem",
-      val || process.cwd(),
-    ],
-  },
-  {
     key: "cloudflare",
     title: "Cloudflare",
     promptType: "wrangler",
@@ -309,7 +289,7 @@ async function promptPathServer(spec, servers, askFn) {
   console.log(`\n• ${spec.title} → ${spec.helpUrl}`);
   const input = await askFn(
     "Directory path for file system access",
-    currentPath,
+    currentPath
   );
 
   if (!input || input === currentPath) {
@@ -340,7 +320,7 @@ async function promptPathServerForCommand(spec, askFn) {
   console.log(`\n• ${spec.title} → ${spec.helpUrl}`);
   const input = await askFn(
     "Directory path for file system access",
-    process.cwd(),
+    process.cwd()
   );
 
   if (input === "-") {
@@ -360,7 +340,7 @@ async function promptPathServerForCommand(spec, askFn) {
 async function promptWranglerServerForCommand(spec, askFn) {
   console.log(`\n• ${spec.title} → ${spec.helpUrl}`);
   console.log(
-    "  ⚠️  Requires: npx wrangler login (run separately before using)",
+    "  ⚠️  Requires: npx wrangler login (run separately before using)"
   );
   const input = await askFn("Enable Cloudflare MCP server? (y/N)", "n");
 
@@ -380,21 +360,27 @@ async function promptWranglerServerForCommand(spec, askFn) {
 
 async function promptDualEnvServerForCommand(spec, askFn) {
   console.log(`\n• ${spec.title} → ${spec.helpUrl}`);
-  
+
   // Check for existing environment variables and display them
   const existingEnv = getExistingServerEnv(spec.key);
   if (existingEnv[spec.envVar]) {
-    const formattedValue = formatExistingValue(spec.envVar, existingEnv[spec.envVar]);
+    const formattedValue = formatExistingValue(
+      spec.envVar,
+      existingEnv[spec.envVar]
+    );
     console.log(`Existing ${spec.envVar}: ${formattedValue}`);
   }
   if (existingEnv[spec.envVar2]) {
-    const formattedValue = formatExistingValue(spec.envVar2, existingEnv[spec.envVar2]);
+    const formattedValue = formatExistingValue(
+      spec.envVar2,
+      existingEnv[spec.envVar2]
+    );
     console.log(`Existing ${spec.envVar2}: ${formattedValue}`);
   }
-  
+
   const input1 = await askFn(
     `${spec.envVar} (e.g., http://localhost:5678/api/v1)`,
-    "",
+    ""
   );
 
   if (input1 === "-") {
@@ -427,9 +413,9 @@ async function promptStandardServerForCommand(spec, askFn) {
       : spec.envVar;
 
   console.log(
-    `\n• ${spec.title} ${spec.envVar ? "API key" : ""} → ${spec.helpUrl}`,
+    `\n• ${spec.title} ${spec.envVar ? "API key" : ""} → ${spec.helpUrl}`
   );
-  
+
   // Check for existing API key and display it
   if (spec.envVar) {
     const existingEnv = getExistingServerEnv(spec.key);
@@ -438,7 +424,7 @@ async function promptStandardServerForCommand(spec, askFn) {
       console.log(`Existing Key: ${maskedKey}`);
     }
   }
-  
+
   const input = await askFn(promptText, "");
 
   if (input === "-") {
@@ -460,7 +446,7 @@ async function promptStandardServerForCommand(spec, askFn) {
 async function promptWranglerServer(spec, servers, askFn) {
   console.log(`\n• ${spec.title} → ${spec.helpUrl}`);
   console.log(
-    "  ⚠️  Requires: npx wrangler login (run separately before using)",
+    "  ⚠️  Requires: npx wrangler login (run separately before using)"
   );
   const input = await askFn("Enable Cloudflare MCP server? (y/N)", "n");
 
@@ -475,7 +461,7 @@ async function promptWranglerServer(spec, servers, askFn) {
     args: spec.args(),
   };
   console.log(
-    `  (enabled ${spec.title} - remember to run: npx wrangler login)`,
+    `  (enabled ${spec.title} - remember to run: npx wrangler login)`
   );
 }
 
@@ -488,7 +474,7 @@ async function promptDualEnvServer(spec, servers, existingEnv, askFn) {
   console.log(`\n• ${spec.title} → ${spec.helpUrl}`);
   const input1 = await askFn(
     `${spec.envVar} (e.g., http://localhost:5678/api/v1)`,
-    shown1,
+    shown1
   );
 
   if (!input1) {
@@ -534,7 +520,7 @@ async function promptStandardServer(spec, servers, existingEnv, askFn) {
       ? "PostgreSQL connection string (e.g., postgresql://user:pass@localhost/db)"
       : spec.envVar;
   console.log(
-    `\n• ${spec.title} ${spec.envVar ? "API key" : ""} → ${spec.helpUrl}`,
+    `\n• ${spec.title} ${spec.envVar ? "API key" : ""} → ${spec.helpUrl}`
   );
   const input = await askFn(promptText, shown);
 
@@ -582,7 +568,7 @@ async function configureClaudeCode() {
   console.log(`\nUsing ${scope} scope for MCP server configuration\n`);
 
   console.log(
-    '🔌 Configure MCP servers (Enter = skip; "-" = disable existing)',
+    '🔌 Configure MCP servers (Enter = skip; "-" = disable existing)'
   );
 
   // Track configured servers for summary
@@ -606,13 +592,12 @@ async function configureClaudeCode() {
       }
 
       if (serverConfig && serverConfig.action === "configure") {
-
         // Build and execute claude mcp add command
         const command = buildClaudeMcpCommand(
           spec,
           scope,
           serverConfig.envVars,
-          serverConfig.extraArgs || [],
+          serverConfig.extraArgs || []
         );
 
         console.log(`  Installing ${spec.title}...`);
@@ -658,7 +643,7 @@ async function configureClaudeCode() {
     execSync("claude mcp list", { stdio: "inherit" });
   } catch (error) {
     console.log(
-      "⚠️  Could not verify installation. Run `claude mcp list` to check manually.",
+      "⚠️  Could not verify installation. Run `claude mcp list` to check manually."
     );
   }
 }
@@ -700,7 +685,7 @@ function scaffoldProjectFiles() {
     fs.writeFileSync(
       projLocal,
       TEMPLATE("project-settings.local.json"),
-      "utf8",
+      "utf8"
     );
     console.log("• .claude/settings.local.json created (local-only overrides)");
   } else {
@@ -710,19 +695,121 @@ function scaffoldProjectFiles() {
   // Documentation templates directory
   const docsDir = path.join(PROJ_CLAUDE_DIR, "templates");
   fs.mkdirSync(docsDir, { recursive: true });
-  
+
   // Domain README template
   const domainReadme = path.join(docsDir, "domain-README.md");
   if (!fs.existsSync(domainReadme)) {
     fs.writeFileSync(domainReadme, TEMPLATE("domain-README.md"), "utf8");
-    console.log("• .claude/templates/domain-README.md created (for feature domains)");
+    console.log(
+      "• .claude/templates/domain-README.md created (for feature domains)"
+    );
   }
 
-  // .claude-context template  
+  // .claude-context template
   const claudeContext = path.join(docsDir, ".claude-context");
   if (!fs.existsSync(claudeContext)) {
     fs.writeFileSync(claudeContext, TEMPLATE(".claude-context"), "utf8");
-    console.log("• .claude/templates/.claude-context created (for AI assistance)");
+    console.log(
+      "• .claude/templates/.claude-context created (for AI assistance)"
+    );
+  }
+
+  // Repository-specific CLAUDE.md template
+  const claudeTemplate = path.join(docsDir, "CLAUDE.md");
+  if (!fs.existsSync(claudeTemplate)) {
+    fs.writeFileSync(claudeTemplate, TEMPLATE("CLAUDE.md"), "utf8");
+    console.log(
+      "• .claude/templates/CLAUDE.md created (repository-specific guidelines)"
+    );
+  }
+
+  // Agent definitions directory
+  const agentsDir = path.join(PROJ_CLAUDE_DIR, "agents");
+  fs.mkdirSync(agentsDir, { recursive: true });
+
+  // Copy all agent definition files from source
+  const sourceAgentsDir = path.join(__dirname, "..", ".claude", "agents");
+  if (fs.existsSync(sourceAgentsDir)) {
+    const agentFiles = fs
+      .readdirSync(sourceAgentsDir)
+      .filter((f) => f.endsWith(".md"));
+
+    for (const agentFile of agentFiles) {
+      const sourcePath = path.join(sourceAgentsDir, agentFile);
+      const targetPath = path.join(agentsDir, agentFile);
+
+      if (!fs.existsSync(targetPath)) {
+        const agentContent = fs.readFileSync(sourcePath, "utf8");
+        fs.writeFileSync(targetPath, agentContent, "utf8");
+        console.log(
+          `• .claude/agents/${agentFile} created (specialized agent)`
+        );
+      }
+    }
+  }
+
+  // Install agents to global Claude directory for Task tool discovery
+  const globalAgentsDir = path.join(GLOBAL_DIR, "agents");
+  fs.mkdirSync(globalAgentsDir, { recursive: true });
+
+  if (fs.existsSync(sourceAgentsDir)) {
+    const agentFiles = fs
+      .readdirSync(sourceAgentsDir)
+      .filter((f) => f.endsWith(".md"));
+
+    for (const agentFile of agentFiles) {
+      // Validate agent file name to prevent path traversal
+      if (
+        !agentFile ||
+        agentFile.includes("..") ||
+        agentFile.includes("/") ||
+        agentFile.includes("\\")
+      ) {
+        console.log(`⚠️  Skipping invalid agent file: ${agentFile}`);
+        continue;
+      }
+
+      const sourcePath = path.join(sourceAgentsDir, agentFile);
+      const globalTargetPath = path.join(globalAgentsDir, agentFile);
+
+      // Ensure target path is within expected directory
+      const resolvedTarget = path.resolve(globalTargetPath);
+      const resolvedAgentsDir = path.resolve(globalAgentsDir);
+      if (!resolvedTarget.startsWith(resolvedAgentsDir)) {
+        console.log(
+          `⚠️  Skipping agent file outside target directory: ${agentFile}`
+        );
+        continue;
+      }
+
+      // Only install if not already present or if source is newer
+      let shouldInstall = !fs.existsSync(globalTargetPath);
+      if (!shouldInstall) {
+        const sourceStats = fs.statSync(sourcePath);
+        const targetStats = fs.statSync(globalTargetPath);
+        shouldInstall = sourceStats.mtime > targetStats.mtime;
+      }
+
+      if (shouldInstall) {
+        const agentContent = fs.readFileSync(sourcePath, "utf8");
+        fs.writeFileSync(globalTargetPath, agentContent, "utf8");
+        console.log(
+          `• ~/.claude/agents/${agentFile} installed (globally available)`
+        );
+      }
+    }
+
+    // Provide user instructions for agent registration
+    console.log("\n🤖 Agent Registration:");
+    console.log(
+      "• Agents are now available in ~/.claude/agents/ and .claude/agents/"
+    );
+    console.log("• To register agents with Claude Code, run: claude");
+    console.log("• Then type: /agents");
+    console.log("• Use the interactive menu to enable your custom agents");
+    console.log(
+      "• After registration, you can use: Task tool with subagent_type: 'planner', 'test-writer', etc."
+    );
   }
 
   // .gitignore (append secret guardrails if missing)
@@ -747,7 +834,7 @@ function scaffoldProjectFiles() {
       fs.writeFileSync(
         gi,
         (cur ? cur.trimEnd() + "\n" : "") + guard + "\n",
-        "utf8",
+        "utf8"
       );
       console.log("• .gitignore updated with secret guardrails");
     } else {
@@ -814,102 +901,153 @@ function showPostSetupGuide() {
 
 function createChecksum(content) {
   const crypto = require("crypto");
-  return crypto.createHash("sha256").update(content, "utf8").digest("hex").slice(0, 16);
+  return crypto
+    .createHash("sha256")
+    .update(content, "utf8")
+    .digest("hex")
+    .slice(0, 16);
 }
 
 function compareTemplates(currentContent, templateContent) {
   if (currentContent === templateContent) {
     return { status: "identical", needsUpdate: false };
   }
-  
+
   // Simple heuristic: if current content contains our template markers, it's likely customized
-  const hasCustomizations = currentContent !== templateContent && 
-    (currentContent.includes("# Claude Code Guidelines") || 
-     currentContent.includes("## Mental Model") ||
-     currentContent.includes("Domain:"));
-  
+  const hasCustomizations =
+    currentContent !== templateContent &&
+    (currentContent.includes("# Claude Code Guidelines") ||
+      currentContent.includes("## Mental Model") ||
+      currentContent.includes("Domain:"));
+
   return {
     status: hasCustomizations ? "customized" : "outdated",
     needsUpdate: true,
     currentChecksum: createChecksum(currentContent),
-    templateChecksum: createChecksum(templateContent)
+    templateChecksum: createChecksum(templateContent),
   };
 }
 
 async function analyzeCurrentTemplates() {
   console.log("🔍 Analyzing current templates...\n");
-  
+
   const results = [];
   const templateFiles = [
-    { 
-      path: "CLAUDE.md", 
+    {
+      path: "CLAUDE.md",
       templateName: "CLAUDE.md",
-      description: "Development guidelines and coding standards"
+      description: "Development guidelines and coding standards",
     },
-    { 
-      path: "README.md", 
+    {
+      path: "README.md",
       templateName: "README.md",
-      description: "Project navigation and mental model"
+      description: "Project navigation and mental model",
     },
-    { 
-      path: ".claude/templates/domain-README.md", 
+    {
+      path: ".claude/templates/domain-README.md",
       templateName: "domain-README.md",
-      description: "Template for feature domain documentation"
+      description: "Template for feature domain documentation",
     },
-    { 
-      path: ".claude/templates/.claude-context", 
+    {
+      path: ".claude/templates/.claude-context",
       templateName: ".claude-context",
-      description: "Template for AI assistance in complex domains"
-    }
+      description: "Template for AI assistance in complex domains",
+    },
+    {
+      path: ".claude/templates/CLAUDE.md",
+      templateName: "CLAUDE.md",
+      description: "Repository-specific CLAUDE.md template",
+    },
   ];
 
   for (const file of templateFiles) {
     const fullPath = path.join(PROJECT_DIR, file.path);
     const templatePath = path.join(TEMPLATES, file.templateName);
-    
+
     if (!fs.existsSync(fullPath)) {
       results.push({
         ...file,
         status: "missing",
         needsUpdate: true,
-        action: "create"
+        action: "create",
       });
       continue;
     }
-    
+
     if (!fs.existsSync(templatePath)) {
       console.log(`⚠️  Template ${file.templateName} not found in package`);
       continue;
     }
-    
+
     const currentContent = fs.readFileSync(fullPath, "utf8");
     const templateContent = fs.readFileSync(templatePath, "utf8");
-    
+
     const comparison = compareTemplates(currentContent, templateContent);
     results.push({
       ...file,
       ...comparison,
-      action: comparison.needsUpdate ? "update" : "none"
+      action: comparison.needsUpdate ? "update" : "none",
     });
   }
-  
+
+  // Handle agent files separately since they're dynamic
+  const sourceAgentsDir = path.join(__dirname, "..", ".claude", "agents");
+  if (fs.existsSync(sourceAgentsDir)) {
+    const agentFiles = fs
+      .readdirSync(sourceAgentsDir)
+      .filter((f) => f.endsWith(".md"));
+
+    for (const agentFile of agentFiles) {
+      const agentPath = path.join(PROJECT_DIR, ".claude", "agents", agentFile);
+      const sourceAgentPath = path.join(sourceAgentsDir, agentFile);
+
+      if (!fs.existsSync(agentPath)) {
+        results.push({
+          path: `.claude/agents/${agentFile}`,
+          templateName: agentFile,
+          description: `Agent definition: ${agentFile.replace(".md", "")}`,
+          status: "missing",
+          needsUpdate: true,
+          action: "create",
+        });
+      } else {
+        const currentContent = fs.readFileSync(agentPath, "utf8");
+        const templateContent = fs.readFileSync(sourceAgentPath, "utf8");
+
+        const comparison = compareTemplates(currentContent, templateContent);
+        results.push({
+          path: `.claude/agents/${agentFile}`,
+          templateName: agentFile,
+          description: `Agent definition: ${agentFile.replace(".md", "")}`,
+          ...comparison,
+          action: comparison.needsUpdate ? "update" : "none",
+        });
+      }
+    }
+  }
+
   return results;
 }
 
 async function showTemplateStatus(results) {
   console.log("📋 Template Status:\n");
-  
+
   let needsAttention = 0;
-  
+
   for (const result of results) {
-    const icon = result.status === "identical" ? "✅" : 
-                 result.status === "missing" ? "❌" : 
-                 result.status === "customized" ? "🔧" : "⚠️";
-    
+    const icon =
+      result.status === "identical"
+        ? "✅"
+        : result.status === "missing"
+          ? "❌"
+          : result.status === "customized"
+            ? "🔧"
+            : "⚠️";
+
     console.log(`${icon} ${result.path}`);
     console.log(`   ${result.description}`);
     console.log(`   Status: ${result.status}`);
-    
+
     if (result.needsUpdate) {
       needsAttention++;
       if (result.status === "missing") {
@@ -922,54 +1060,55 @@ async function showTemplateStatus(results) {
     }
     console.log("");
   }
-  
+
   return needsAttention;
 }
 
 async function selectTemplatesForUpdate(results) {
-  const updateable = results.filter(r => r.needsUpdate);
+  const updateable = results.filter((r) => r.needsUpdate);
   if (updateable.length === 0) return [];
-  
+
   console.log("🎯 Select templates to update:\n");
-  
+
   const choices = [];
   for (let i = 0; i < updateable.length; i++) {
     const result = updateable[i];
-    const recommendation = result.status === "customized" ? " (⚠️  has customizations)" : "";
+    const recommendation =
+      result.status === "customized" ? " (⚠️  has customizations)" : "";
     console.log(`  ${i + 1}) ${result.path}${recommendation}`);
     choices.push(result);
   }
-  
+
   console.log(`  a) All templates`);
   console.log(`  q) Quit without updating\n`);
-  
+
   const response = await ask("Select templates (1,2,3 or 'a' or 'q')", "");
-  
+
   if (response.toLowerCase() === "q") {
     return [];
   }
-  
+
   if (response.toLowerCase() === "a") {
     return choices;
   }
-  
+
   // Parse comma-separated numbers
   const selected = [];
-  const numbers = response.split(",").map(s => s.trim());
-  
+  const numbers = response.split(",").map((s) => s.trim());
+
   for (const num of numbers) {
     const index = parseInt(num) - 1;
     if (index >= 0 && index < choices.length) {
       selected.push(choices[index]);
     }
   }
-  
+
   return selected;
 }
 
 async function createBackup(filePath) {
   if (!fs.existsSync(filePath)) return null;
-  
+
   const backupPath = `${filePath}.backup.${Date.now()}`;
   const content = fs.readFileSync(filePath, "utf8");
   fs.writeFileSync(backupPath, content, "utf8");
@@ -978,15 +1117,30 @@ async function createBackup(filePath) {
 
 async function updateTemplate(templateInfo, dryRun = false) {
   const fullPath = path.join(PROJECT_DIR, templateInfo.path);
-  const templatePath = path.join(TEMPLATES, templateInfo.templateName);
-  
+
+  // Handle agent files from different source directory
+  let templatePath;
+  if (templateInfo.path.startsWith(".claude/agents/")) {
+    templatePath = path.join(
+      __dirname,
+      "..",
+      ".claude",
+      "agents",
+      templateInfo.templateName
+    );
+  } else {
+    templatePath = path.join(TEMPLATES, templateInfo.templateName);
+  }
+
   console.log(`${dryRun ? "[DRY RUN]" : ""} Updating ${templateInfo.path}...`);
-  
+
   if (dryRun) {
-    console.log(`  Would ${templateInfo.status === "missing" ? "create" : "update"} file`);
+    console.log(
+      `  Would ${templateInfo.status === "missing" ? "create" : "update"} file`
+    );
     return { success: true, dryRun: true };
   }
-  
+
   try {
     // Create backup if file exists
     let backupPath = null;
@@ -994,19 +1148,20 @@ async function updateTemplate(templateInfo, dryRun = false) {
       backupPath = await createBackup(fullPath);
       console.log(`  Created backup: ${path.basename(backupPath)}`);
     }
-    
+
     // Ensure directory exists
     const dir = path.dirname(fullPath);
     fs.mkdirSync(dir, { recursive: true });
-    
+
     // Copy template content
     const templateContent = fs.readFileSync(templatePath, "utf8");
     fs.writeFileSync(fullPath, templateContent, "utf8");
-    
-    console.log(`  ✅ ${templateInfo.status === "missing" ? "Created" : "Updated"} successfully`);
-    
+
+    console.log(
+      `  ✅ ${templateInfo.status === "missing" ? "Created" : "Updated"} successfully`
+    );
+
     return { success: true, backupPath };
-    
   } catch (error) {
     console.log(`  ❌ Failed to update: ${error.message}`);
     return { success: false, error: error.message };
@@ -1015,84 +1170,151 @@ async function updateTemplate(templateInfo, dryRun = false) {
 
 async function updateTemplates() {
   console.log("📝 Claude Code Template Update Tool\n");
-  
+
   // Check if we're in a project directory
   const hasClaudeDir = fs.existsSync(path.join(PROJECT_DIR, ".claude"));
   if (!hasClaudeDir) {
-    console.log("❌ No .claude directory found. Please run 'npx claude-code-quickstart init' first.\n");
+    console.log(
+      "❌ No .claude directory found. Please run 'npx claude-code-quickstart init' first.\n"
+    );
     return;
   }
-  
+
   try {
     // Phase 1: Analysis
     const results = await analyzeCurrentTemplates();
     const needsAttention = await showTemplateStatus(results);
-    
+
     if (needsAttention === 0) {
       console.log("✅ All templates are up to date!\n");
       return;
     }
-    
+
     // Phase 2: Selection
     const selectedTemplates = await selectTemplatesForUpdate(results);
-    
+
     if (selectedTemplates.length === 0) {
       console.log("👋 No templates selected. Exiting.\n");
       return;
     }
-    
+
     // Ask for dry run first
-    const dryRun = (await ask("\nPerform dry run first? (Y/n)", "y")).toLowerCase();
+    const dryRun = (
+      await ask("\nPerform dry run first? (Y/n)", "y")
+    ).toLowerCase();
     const shouldDryRun = !dryRun.startsWith("n");
-    
+
     if (shouldDryRun) {
       console.log("\n🔍 Dry run - showing what would be changed:\n");
       for (const template of selectedTemplates) {
         await updateTemplate(template, true);
       }
-      
+
       const proceed = await ask("\nProceed with actual updates? (y/N)", "n");
       if (!proceed.toLowerCase().startsWith("y")) {
         console.log("👋 Cancelled by user.\n");
         return;
       }
     }
-    
+
     // Phase 3: Updates
     console.log("\n🔧 Updating templates:\n");
     const results_update = [];
-    
+
     for (const template of selectedTemplates) {
       const result = await updateTemplate(template, false);
       results_update.push({ template, result });
     }
-    
+
     // Summary
     console.log("\n📊 Update Summary:");
-    const successful = results_update.filter(r => r.result.success).length;
-    const failed = results_update.filter(r => !r.result.success).length;
-    
+    const successful = results_update.filter((r) => r.result.success).length;
+    const failed = results_update.filter((r) => !r.result.success).length;
+
     console.log(`  ✅ Successful: ${successful}`);
     if (failed > 0) {
       console.log(`  ❌ Failed: ${failed}`);
     }
-    
+
     const backups = results_update
-      .filter(r => r.result.backupPath)
-      .map(r => r.result.backupPath);
-    
+      .filter((r) => r.result.backupPath)
+      .map((r) => r.result.backupPath);
+
     if (backups.length > 0) {
       console.log(`\n💾 Backups created:`);
-      backups.forEach(backup => console.log(`  ${backup}`));
+      backups.forEach((backup) => console.log(`  ${backup}`));
       console.log("\n  💡 To rollback: cp <backup-file> <original-file>");
     }
-    
+
     console.log("\n✅ Template update complete!\n");
-    
   } catch (error) {
     console.error(`❌ Error during template update: ${error.message}`);
     process.exit(1);
   }
+}
+
+function showAgentRegistrationGuide() {
+  console.log("🤖 Claude Code Agent Registration Guide\n");
+
+  console.log("📁 INSTALLED AGENTS:");
+  const agentsDir = path.join(GLOBAL_DIR, "agents");
+  if (fs.existsSync(agentsDir)) {
+    const agentFiles = fs
+      .readdirSync(agentsDir)
+      .filter((f) => f.endsWith(".md"))
+      .filter((f) => {
+        try {
+          const agentPath = path.join(agentsDir, f);
+          const content = fs.readFileSync(agentPath, "utf8");
+          // Validate agent has proper YAML frontmatter with name field
+          return content.startsWith("---") && content.includes("name:");
+        } catch (error) {
+          console.log(`⚠️  Skipping invalid agent file: ${f}`);
+          return false;
+        }
+      });
+
+    if (agentFiles.length === 0) {
+      console.log("  No valid agents found.");
+    } else {
+      agentFiles.forEach((file) => {
+        const agentName = file.replace(".md", "");
+        console.log(`  • ${agentName}`);
+      });
+    }
+  } else {
+    console.log(
+      "  No agents installed yet. Run 'npx claude-code-quickstart init' first."
+    );
+    return;
+  }
+
+  console.log("\n🚀 REGISTRATION STEPS:");
+  console.log("1. Start Claude Code:");
+  console.log("   claude");
+  console.log("");
+  console.log("2. Open the agents menu:");
+  console.log("   /agents");
+  console.log("");
+  console.log("3. In the interactive menu:");
+  console.log("   • Review available agents");
+  console.log("   • Select 'Edit' for each agent you want to enable");
+  console.log("   • Verify tool permissions");
+  console.log("   • Save changes");
+  console.log("");
+  console.log("4. After registration, use agents in the Task tool:");
+  console.log("   • Task tool with subagent_type: 'planner'");
+  console.log("   • Task tool with subagent_type: 'test-writer'");
+  console.log("   • Task tool with subagent_type: 'debugger'");
+  console.log("");
+  console.log(
+    "💡 TIP: Claude Code will auto-delegate to agents based on context"
+  );
+  console.log("or you can explicitly request: 'Use the planner agent...'");
+  console.log("");
+  console.log(
+    "📖 More info: https://docs.anthropic.com/en/docs/claude-code/sub-agents"
+  );
 }
 
 function showHelp() {
@@ -1100,16 +1322,24 @@ function showHelp() {
   console.log("USAGE:");
   console.log("  npx claude-code-quickstart [command]\n");
   console.log("COMMANDS:");
-  console.log("  init              Configure MCP servers and scaffold project files (default)");
-  console.log("  update-templates  Update existing templates to latest versions");  
+  console.log(
+    "  init              Configure MCP servers and scaffold project files (default)"
+  );
+  console.log(
+    "  update-templates  Update existing templates to latest versions"
+  );
+  console.log("  register-agents   Help register agents with Claude Code");
   console.log("  help, -h, --help  Show this help message\n");
   console.log("EXAMPLES:");
   console.log("  npx claude-code-quickstart");
   console.log("  npx claude-code-quickstart init");
   console.log("  npx claude-code-quickstart update-templates");
+  console.log("  npx claude-code-quickstart register-agents");
   console.log("  npx claude-code-quickstart --help\n");
   console.log("📖 DOCUMENTATION:");
-  console.log("  • GitHub → https://github.com/sparkryio/claude-code-quickstart");
+  console.log(
+    "  • GitHub → https://github.com/sparkryio/claude-code-quickstart"
+  );
   console.log("  • Claude Code → https://docs.anthropic.com/claude-code\n");
 }
 
@@ -1130,13 +1360,29 @@ async function main() {
     return;
   }
 
+  if (cmd === "register-agents") {
+    showAgentRegistrationGuide();
+    rl.close();
+    return;
+  }
+
   if (cmd === "help" || cmd === "--help" || cmd === "-h") {
     showHelp();
     rl.close();
     return;
   }
 
-  if (cmd && !["init", "update-templates", "help", "--help", "-h"].includes(cmd)) {
+  if (
+    cmd &&
+    ![
+      "init",
+      "update-templates",
+      "register-agents",
+      "help",
+      "--help",
+      "-h",
+    ].includes(cmd)
+  ) {
     console.log(`❌ Unknown command: ${cmd}\n`);
     showHelp();
     rl.close();

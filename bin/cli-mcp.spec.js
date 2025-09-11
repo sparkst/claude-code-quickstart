@@ -185,14 +185,14 @@ describe("getExistingServerEnv", () => {
         const claudeSettingsPath = path.join(
           os.homedir(),
           ".claude",
-          "settings.json",
+          "settings.json"
         );
         if (!fs.existsSync(claudeSettingsPath)) {
           return {};
         }
 
         const settings = JSON.parse(
-          fs.readFileSync(claudeSettingsPath, "utf8"),
+          fs.readFileSync(claudeSettingsPath, "utf8")
         );
         const serverConfig =
           settings.mcpServers && settings.mcpServers[serverKey];
@@ -373,7 +373,7 @@ describe("handleExistingServer", () => {
   const mockHandleExistingServer = (
     mockExecSync,
     mockConsoleLog,
-    mockGetExistingEnv,
+    mockGetExistingEnv
   ) => {
     return async (spec, askFn) => {
       // Get existing environment variables to show user what's configured
@@ -407,7 +407,7 @@ describe("handleExistingServer", () => {
 
       const choice = await askFn(
         `What would you like to do? (k)eep existing, (r)emove and reinstall, (s)kip`,
-        "k",
+        "k"
       );
 
       switch (choice.toLowerCase()) {
@@ -420,7 +420,7 @@ describe("handleExistingServer", () => {
             return "reinstall";
           } catch (error) {
             mockConsoleLog(
-              `  ❌ Failed to remove ${spec.title}: ${error.message}`,
+              `  ❌ Failed to remove ${spec.title}: ${error.message}`
             );
             return "skip";
           }
@@ -444,7 +444,7 @@ describe("handleExistingServer", () => {
     const handleExisting = mockHandleExistingServer(
       mockExecSync,
       mockConsoleLog,
-      mockGetExistingEnv,
+      mockGetExistingEnv
     );
     const spec = { title: "Context7", key: "context7" };
 
@@ -461,7 +461,7 @@ describe("handleExistingServer", () => {
     const handleExisting = mockHandleExistingServer(
       mockExecSync,
       mockConsoleLog,
-      mockGetExistingEnv,
+      mockGetExistingEnv
     );
     const spec = { title: "Context7", key: "context7" };
 
@@ -478,7 +478,7 @@ describe("handleExistingServer", () => {
     const handleExisting = mockHandleExistingServer(
       mockExecSync,
       mockConsoleLog,
-      mockGetExistingEnv,
+      mockGetExistingEnv
     );
     const spec = { title: "Context7", key: "context7" };
 
@@ -495,7 +495,7 @@ describe("handleExistingServer", () => {
     const handleExisting = mockHandleExistingServer(
       mockExecSync,
       mockConsoleLog,
-      mockGetExistingEnv,
+      mockGetExistingEnv
     );
     const spec = { title: "Context7", key: "context7" };
 
@@ -514,7 +514,7 @@ describe("handleExistingServer", () => {
     const handleExisting = mockHandleExistingServer(
       mockExecSync,
       mockConsoleLog,
-      mockGetExistingEnv,
+      mockGetExistingEnv
     );
     const spec = { title: "Context7", key: "context7" };
 
@@ -531,7 +531,7 @@ describe("handleExistingServer", () => {
     const handleExisting = mockHandleExistingServer(
       mockExecSync,
       mockConsoleLog,
-      mockGetExistingEnv,
+      mockGetExistingEnv
     );
     const spec = { title: "Supabase", key: "supabase" };
 
@@ -547,7 +547,7 @@ describe("handleExistingServer", () => {
     const handleExisting = mockHandleExistingServer(
       mockExecSync,
       mockConsoleLog,
-      mockGetExistingEnv,
+      mockGetExistingEnv
     );
     const spec = { title: "GitHub", key: "github" };
 
@@ -568,7 +568,7 @@ describe("handleExistingServer", () => {
     const handleExisting = mockHandleExistingServer(
       mockExecSync,
       mockConsoleLog,
-      mockGetExistingEnv,
+      mockGetExistingEnv
     );
     const spec = {
       title: "Context7",
@@ -580,7 +580,7 @@ describe("handleExistingServer", () => {
 
     expect(consoleMessages).toContain("  ⚠️  Context7 is already configured");
     expect(consoleMessages).toContain(
-      "     Current CONTEXT7_API_KEY: ctx7s…345",
+      "     Current CONTEXT7_API_KEY: ctx7s…345"
     );
   });
 
@@ -600,7 +600,7 @@ describe("handleExistingServer", () => {
     const handleExisting = mockHandleExistingServer(
       mockExecSync,
       mockConsoleLog,
-      mockGetExistingEnv,
+      mockGetExistingEnv
     );
     const spec = {
       title: "n8n",
@@ -626,17 +626,17 @@ describe("handleExistingServer", () => {
     const handleExisting = mockHandleExistingServer(
       mockExecSync,
       mockConsoleLog,
-      mockGetExistingEnv,
+      mockGetExistingEnv
     );
     const spec = { title: "File System", key: "filesystem" };
 
     await handleExisting(spec, mockAskFn);
 
     expect(consoleMessages).toContain(
-      "  ⚠️  File System is already configured",
+      "  ⚠️  File System is already configured"
     );
     expect(
-      consoleMessages.filter((msg) => msg.includes("Current")).length,
+      consoleMessages.filter((msg) => msg.includes("Current")).length
     ).toBe(0);
   });
 });

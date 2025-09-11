@@ -11,7 +11,9 @@ const loadJsonSafe = (p, fallback) => {
   } catch {
     try {
       fs.copyFileSync(p, `${p}.bak`);
-    } catch {}
+    } catch {
+      // Ignore backup errors
+    }
     return fallback;
   }
 };
@@ -189,7 +191,7 @@ describe("mergePermissions", () => {
     const result = mergePermissions(existing);
 
     const denyCount = result.permissions.deny.filter(
-      (p) => p === "Read(*.env)",
+      (p) => p === "Read(*.env)"
     ).length;
     expect(denyCount).toBe(1);
   });

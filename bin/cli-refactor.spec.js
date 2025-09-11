@@ -38,7 +38,7 @@ describe("Refactored MCP Prompt Functions", () => {
           (existingEntry.args && existingEntry.args[2]) || process.cwd();
         const input = await askFn(
           "Directory path for file system access",
-          currentPath,
+          currentPath
         );
 
         if (input && input !== currentPath && input !== "-") {
@@ -55,7 +55,7 @@ describe("Refactored MCP Prompt Functions", () => {
       expect(servers.filesystem.args).toContain("/custom/path");
       expect(mockAsk).toHaveBeenCalledWith(
         "Directory path for file system access",
-        process.cwd(),
+        process.cwd()
       );
     });
 
@@ -74,7 +74,7 @@ describe("Refactored MCP Prompt Functions", () => {
           (existingEntry.args && existingEntry.args[2]) || process.cwd();
         const input = await askFn(
           "Directory path for file system access",
-          currentPath,
+          currentPath
         );
 
         if (!input && existingEntry.command) {
@@ -132,7 +132,7 @@ describe("Refactored MCP Prompt Functions", () => {
       const promptDualEnvServer = async (spec, servers, existingEnv, askFn) => {
         const input1 = await askFn(
           `${spec.envVar} (e.g., http://localhost:5678/api/v1)`,
-          "",
+          ""
         );
         if (input1 && input1 !== "-") {
           const input2 = await askFn(`${spec.envVar2}`, "");
@@ -163,7 +163,7 @@ describe("Refactored MCP Prompt Functions", () => {
       const promptDualEnvServer = async (spec, servers, existingEnv, askFn) => {
         const input1 = await askFn(
           `${spec.envVar} (e.g., http://localhost:5678/api/v1)`,
-          "",
+          ""
         );
         if (input1 && input1 !== "-") {
           const input2 = await askFn(`${spec.envVar2}`, "");
@@ -250,7 +250,7 @@ describe("Function Complexity Reduction", () => {
     // Total lines should be similar to original
     const totalLines = Object.values(expectedSizes).reduce(
       (sum, lines) => sum + lines,
-      0,
+      0
     );
     expect(totalLines).toBeLessThan(200); // Was 168, now ~175 but better organized
   });

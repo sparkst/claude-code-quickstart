@@ -1,96 +1,202 @@
-# Claude Code Guidelines by Sabrina Ramonov
+# Claude Code Guidelines (Sparkry Revamp)
 
-## Implementation Best Practices
-
-### 0 — Purpose  
-
-These rules ensure maintainability, safety, and developer velocity. 
-**MUST** rules are enforced by CI; **SHOULD** rules are strongly recommended.
+> **Purpose**: lock in consistent TDD, keep requirements front‑and‑center, and wire Claude Code’s **sub‑agents** to your **QShortcuts** so the right specialist runs at the right time—safely, predictably, and fast.
 
 ---
+
+## Table of Contents
+1. Principles (tightened)
+2. Requirements Discipline (the “requirements.lock” pattern)
+3. TDD Enforcement Flow
+4. QShortcuts (verbatim) + Agent Guidance
+5. Sub‑Agent Suite (definitions live under `.claude/agents/`)
+6. Permissions & Modes (`.claude/settings.json`)
+7. Progressive Documentation (unchanged templates)
+
+---
+
+## 1) Principles (tightened)
+
+### 0 — Purpose
+Ensure maintainability, safety, and developer velocity. **MUST** rules are CI‑enforced; **SHOULD** rules are strongly recommended.
 
 ### 1 — Before Coding
-
-- **BP-1 (MUST)** Ask the user clarifying questions.
-- **BP-2 (SHOULD)** Draft and confirm an approach for complex work.  
-- **BP-3 (SHOULD)** If ≥ 2 approaches exist, list clear pros and cons.
-
----
+- **BP‑1 (MUST)** Ask clarifying questions when requirements are ambiguous.
+- **BP‑2 (MUST)** Draft/confirm an approach for non‑trivial work; record acceptance criteria under **`requirements/current.md`**.
+- **BP‑3 (SHOULD)** If ≥2 approaches exist, list pros/cons and choose the simplest that meets the requirements.
 
 ### 2 — While Coding
-
-- **C-1 (MUST)** Follow TDD: scaffold stub -> write failing test -> implement.
-- **C-2 (MUST)** Name functions with existing domain vocabulary for consistency.  
-- **C-3 (SHOULD NOT)** Introduce classes when small testable functions suffice.  
-- **C-4 (SHOULD)** Prefer simple, composable, testable functions.
-- **C-5 (MUST)** Prefer branded `type`s for IDs
-  ```ts
-  type UserId = Brand<string, 'UserId'>   // ✅ Good
-  type UserId = string                    // ❌ Bad
-  ```  
-- **C-6 (MUST)** Use `import type { … }` for type-only imports.
-- **C-7 (SHOULD NOT)** Add comments except for critical caveats; rely on self‑explanatory code.
-- **C-8 (SHOULD)** Default to `type`; use `interface` only when more readable or interface merging is required. 
-- **C-9 (SHOULD NOT)** Extract a new function unless it will be reused elsewhere, is the only way to unit-test otherwise untestable logic, or drastically improves readability of an opaque block.
-
----
+- **C‑1 (MUST)** **TDD**: create a failing test that references requirement IDs **before** implementation.
+- **C‑2 (MUST)** Use domain vocabulary for names; prefer small, composable, pure functions.
+- **C‑3 (MUST)** Type safety: branded `type`s for identifiers; `import type { … }` for type‑only imports.
+- **C‑4 (SHOULD NOT)** Add comments except for hard caveats; code should explain itself.
+- **C‑5 (SHOULD)** Prefer `type` over `interface` unless interface merging/readability wins.
 
 ### 3 — Testing
+- **T‑1 (MUST)** Co‑locate unit tests as `*.spec.ts` near sources; separate integration tests.
+- **T‑2 (MUST)** Any API change extends integration tests; avoid heavy mocks.
+- **T‑3 (MUST)** Tests should cite requirement IDs (e.g., `REQ‑123`) in titles.
+- **T‑4 (SHOULD)** Favor property‑based tests for algorithmic code.
 
-- **T-1 (MUST)** For a simple function, colocate unit tests in `*.spec.ts` in same directory as source file.
-- **T-2 (MUST)** For any API change, add/extend integration tests in your test directory.
-- **T-3 (MUST)** ALWAYS separate pure-logic unit tests from DB-touching integration tests.
-- **T-4 (SHOULD)** Prefer integration tests over heavy mocking.  
-- **T-5 (SHOULD)** Unit-test complex algorithms thoroughly.
-- **T-6 (SHOULD)** Test the entire structure in one assertion if possible
-  ```
-  expect(result).toBe([value]) // Good
+### 4 — Database
+- **D‑1 (MUST)** DB helpers type to work with connections and transactions.
+- **D‑2 (SHOULD)** Override incorrect generated types with docs.
 
-  expect(result).toHaveLength(1); // Bad
-  expect(result[0]).toBe(value); // Bad
-  ```
+### 5 — Organization
+- **O‑1 (MUST)** Share code only when used by ≥2 modules.
+- **O‑2 (SHOULD)** Organize by feature (e.g., `user/`), not layers.
 
----
-
-### 4 — Database (if applicable)
-
-- **D-1 (MUST)** Type DB helpers consistently to work with both connections and transactions.  
-- **D-2 (SHOULD)** Override incorrect generated types when necessary. Document overrides clearly.
-
----
-
-### 5 — Code Organization
-
-- **O-1 (MUST)** Place shared code only where it's used by multiple modules/packages.
-- **O-2 (SHOULD)** Organize code by feature, not by file type (prefer `user/` over `models/`, `services/`, `controllers/`).
-
----
-
-### 6 — Documentation & Discovery
-
-- **DOC-1 (MUST)** Use self-documenting code as primary documentation - clear naming, branded types, pure functions.
-- **DOC-2 (MUST)** Add domain `README.md` files for each major feature area to explain boundaries and purpose.
-- **DOC-3 (SHOULD)** Create `.claude-context` files for complex domains requiring AI assistance.
-- **DOC-4 (MUST)** Keep navigation `README.md` in project root with mental model and entry points.
-- **DOC-5 (SHOULD)** Use git commit messages as change documentation following conventional commits.
-
----
+### 6 — Docs & Discoverability
+- **DOC‑1 (MUST)** Self‑documenting code first.
+- **DOC‑2 (MUST)** Domain READMEs per feature; root README is the map.
+- **DOC‑3 (SHOULD)** `.claude-context` for complex domains.
+- **DOC‑4 (MUST)** Conventional commits.
 
 ### 7 — Tooling Gates
-
-- **G-1 (MUST)** `prettier --check` passes.  
-- **G-2 (MUST)** Type checking and linting passes (e.g., `tsc --noEmit`, `eslint`, `turbo typecheck lint`).  
-
----
-
-### 8 - Git
-
-- **GH-1 (MUST)** Use Conventional Commits format when writing commit messages: https://www.conventionalcommits.org/en/v1.0.0
-- **GH-2 (SHOULD NOT)** Refer to Claude or Anthropic in commit messages.
+- **G‑1 (MUST)** prettier, lint, and typecheck green.
+- **G‑2 (MUST)** Tests green locally before `qgit`.
 
 ---
 
-## Writing Functions Best Practices
+## 2) Requirements Discipline: `requirements.lock` Pattern
+
+**Goal:** Stop forgetting requirements mid‑flow.
+
+- Keep **canonical acceptance criteria** in `requirements/current.md`.
+- At the start of any non‑trivial task (`qnew`/`qplan`), snapshot to **`requirements/requirements.lock.md`**.
+- Tests must reference **REQ IDs** defined in the lock file headings:
+  - Example heading: `## REQ‑123: User can reset password via email link`.
+  - Example test title: `REQ‑123 — sends token with 15‑min TTL`.
+
+Minimal template (`requirements/current.md`):
+```markdown
+# Current Requirements
+
+## REQ-101: <Concise requirement>
+- Acceptance: <bullet points>
+- Non-Goals: <optional>
+- Notes: <links>
+
+## REQ-102: <...>
+```
+
+The lock file (`requirements/requirements.lock.md`) is a snapshot from `current.md` for the active task and is regenerated per task.
+
+---
+
+## 3) TDD Enforcement Flow
+
+1. **QNEW/QPLAN** → Agents: **planner** + **docs-writer**
+   - Planner extracts REQ IDs and writes `requirements/current.md`.
+   - Snapshot to `requirements/requirements.lock.md`.
+2. **QCODE** → Agent: **test-writer** (first)
+   - Generates failing tests for each REQ‑ID in the lock; runs tests; confirms failures.
+   - Only then may implementation proceed.
+3. **QCODE (implement)** → Main or **debugger** as needed
+   - Implement minimal code to satisfy the failing tests.
+4. **QCHECK/QCHECKF/QCHECKT** → Agent: **PE-Reviewer** (+ **security-reviewer** if touching IO/auth/network/fs/templates)
+5. **QDOC** → **docs-writer** updates READMEs/CHANGELOG from diffs & REQ lock.
+6. **QGIT** → **release-manager** verifies gates: tests, lint, types, versioning, CHANGELOG.
+
+If any step misses REQ coverage, **test-writer** blocks and prompts to add the missing failing test.
+
+---
+
+## 4) QShortcuts (verbatim) + Agent Guidance
+
+> Use these exactly in chat. The agents’ descriptions include when they should activate for each shortcut.
+
+### QNEW
+```
+Understand all BEST PRACTICES listed in CLAUDE.md.
+Your code SHOULD ALWAYS follow these best practices.
+```
+**Agents:** planner → docs-writer (snapshot requirements.lock)
+
+### QPLAN
+```
+Analyze similar parts of the codebase and determine whether your plan:
+- is consistent with rest of codebase
+- introduces minimal changes
+- reuses existing code
+```
+**Agent:** planner
+
+### QCODE
+```
+Implement your plan and make sure your new tests pass.
+Always run tests to make sure you didn't break anything else.
+Always run `prettier` on the newly created files to ensure standard formatting.
+Always run your project's type checking and linting commands (e.g., `npm run typecheck`, `npm run lint`, or `turbo typecheck lint`).
+```
+**Agents:** test-writer (first; must create failing tests), then debugger as needed
+
+### QCHECK
+```
+You are a SKEPTICAL senior software engineer.
+Perform this analysis for every MAJOR code change you introduced (skip minor changes):
+
+1. CLAUDE.md checklist Writing Functions Best Practices.
+2. CLAUDE.md checklist Writing Tests Best Practices.
+3. CLAUDE.md checklist Implementation Best Practices.
+```
+**Agents:** PE-Reviewer (+ security-reviewer when touching auth/network/fs/templates/db/crypto)
+
+### QCHECKF
+```
+You are a SKEPTICAL senior software engineer.
+Perform this analysis for every MAJOR function you added or edited (skip minor changes):
+
+1. CLAUDE.md checklist Writing Functions Best Practices.
+```
+**Agent:** PE-Reviewer
+
+### QCHECKT
+```
+You are a SKEPTICAL senior software engineer.
+Perform this analysis for every MAJOR test you added or edited (skip minor changes):
+
+1. CLAUDE.md checklist Writing Tests Best Practices.
+```
+**Agents:** PE-Reviewer + test-writer (suggestions)
+
+### QUX
+```
+Imagine you are a human UX tester of the feature you implemented. 
+Output a comprehensive list of scenarios you would test, sorted by highest priority.
+Provide enough details that a human UX tester can run the tests independently
+```
+**Agent:** ux-tester
+
+### QDOC
+```
+You are an expert technical writer.  Review the work we just did and ensure it is fully documented based on the project's Progressive Documentation Guide below. Output that documentation per the guide.
+```
+**Agent:** docs-writer
+
+### QGIT
+```
+Add all changes to staging, create a commit, and push to remote.
+
+Follow this checklist for writing your commit message:
+- SHOULD use Conventional Commits format: https://www.conventionalcommits.org/en/v1.0.0
+- SHOULD NOT refer to Claude or Anthropic in the commit message.
+- SHOULD structure commit message as follows:
+<type>[optional scope]: <description>
+[optional body]
+[optional footer(s)]
+- commit SHOULD contain the following structural elements to communicate intent: 
+fix: a commit of the type fix patches a bug in your codebase (this correlates with PATCH in Semantic Versioning).
+feat: a commit of the type feat introduces a new feature to the codebase (this correlates with MINOR in Semantic Versioning).
+BREAKING CHANGE: a commit that has a footer BREAKING CHANGE:, or appends a ! after the type/scope, introduces a breaking API change (correlating with MAJOR in Semantic Versioning). A BREAKING CHANGE can be part of commits of any type.
+types other than fix: and feat: are allowed, for example @commitlint/config-conventional (based on the Angular convention) recommends build:, chore:, ci:, docs:, style:, refactor:, perf:, test:, and others.
+footers other than BREAKING CHANGE: <description> may be provided and follow a convention similar to git trailer format.
+```
+**Agent:** release-manager
+
+---
+
+## 5) Writing Functions Best Practices (restored)
 
 When evaluating whether a function you implemented is good or not, use this checklist:
 
@@ -108,7 +214,9 @@ IMPORTANT: you SHOULD NOT refactor out a separate function unless there is a com
   - the refactored function is easily unit testable while the original function is not AND you can't test it any other way
   - the original function is extremely hard to follow and you resort to putting comments everywhere just to explain it
 
-## Writing Tests Best Practices
+---
+
+## 6) Writing Tests Best Practices (restored)
 
 When evaluating whether a test you've implemented is good or not, use this checklist:
 
@@ -118,7 +226,7 @@ When evaluating whether a test you've implemented is good or not, use this check
 4. SHOULD compare results to independent, pre-computed expectations or to properties of the domain, never to the function's output re-used as the oracle.
 5. SHOULD follow the same lint, type-safety, and style rules as prod code (prettier, ESLint, strict types).
 6. SHOULD express invariants or axioms (e.g., commutativity, idempotence, round-trip) rather than single hard-coded cases whenever practical. Use `fast-check` library e.g.
-```
+```ts
 import fc from 'fast-check';
 import { describe, expect, test } from 'vitest';
 import { getCharacterCount } from './string';
@@ -137,228 +245,84 @@ describe('properties', () => {
   });
 });
 ```
-
 7. Unit tests for a function should be grouped under `describe(functionName, () => ...`.
 8. Use `expect.any(...)` when testing for parameters that can be anything (e.g. variable ids).
 9. ALWAYS use strong assertions over weaker ones e.g. `expect(x).toEqual(1)` instead of `expect(x).toBeGreaterThanOrEqual(1)`.
 10. SHOULD test edge cases, realistic input, unexpected input, and value boundaries.
 11. SHOULD NOT test conditions that are caught by the type checker.
 
-## Code Organization
+---
 
-*Customize this section for your project structure:*
+## 7) Permissions & Modes (`.claude/settings.json`)
 
-- `src/` - Main application code
-- `lib/` - Shared utilities and helpers  
-- `types/` - TypeScript type definitions
-- `tests/` - Test files
-
-*Example for monorepo:*
-- `packages/api/` - Backend API
-- `packages/web/` - Frontend application
-- `packages/shared/` - Shared code between packages
-
-## Remember Shortcuts
-
-Remember the following shortcuts which the user may invoke at any time.
-
-### QNEW
-
-When I type "qnew", this means:
-
-```
-Understand all BEST PRACTICES listed in CLAUDE.md.
-Your code SHOULD ALWAYS follow these best practices.
-```
-
-### QPLAN
-When I type "qplan", this means:
-```
-Analyze similar parts of the codebase and determine whether your plan:
-- is consistent with rest of codebase
-- introduces minimal changes
-- reuses existing code
-```
-
-## QCODE
-
-When I type "qcode", this means:
-
-```
-Implement your plan and make sure your new tests pass.
-Always run tests to make sure you didn't break anything else.
-Always run `prettier` on the newly created files to ensure standard formatting.
-Always run your project's type checking and linting commands (e.g., `npm run typecheck`, `npm run lint`, or `turbo typecheck lint`).
-```
-
-### QCHECK
-
-When I type "qcheck", this means:
-
-```
-You are a SKEPTICAL senior software engineer.
-Perform this analysis for every MAJOR code change you introduced (skip minor changes):
-
-1. CLAUDE.md checklist Writing Functions Best Practices.
-2. CLAUDE.md checklist Writing Tests Best Practices.
-3. CLAUDE.md checklist Implementation Best Practices.
-```
-
-### QCHECKF
-
-When I type "qcheckf", this means:
-
-```
-You are a SKEPTICAL senior software engineer.
-Perform this analysis for every MAJOR function you added or edited (skip minor changes):
-
-1. CLAUDE.md checklist Writing Functions Best Practices.
-```
-
-### QCHECKT
-
-When I type "qcheckt", this means:
-
-```
-You are a SKEPTICAL senior software engineer.
-Perform this analysis for every MAJOR test you added or edited (skip minor changes):
-
-1. CLAUDE.md checklist Writing Tests Best Practices.
-```
-
-### QUX
-
-When I type "qux", this means:
-
-```
-Imagine you are a human UX tester of the feature you implemented. 
-Output a comprehensive list of scenarios you would test, sorted by highest priority.
-```
-
-### QGIT
-
-When I type "qgit", this means:
-
-```
-Add all changes to staging, create a commit, and push to remote.
-
-Follow this checklist for writing your commit message:
-- SHOULD use Conventional Commits format: https://www.conventionalcommits.org/en/v1.0.0
-- SHOULD NOT refer to Claude or Anthropic in the commit message.
-- SHOULD structure commit message as follows:
-<type>[optional scope]: <description>
-[optional body]
-[optional footer(s)]
-- commit SHOULD contain the following structural elements to communicate intent: 
-fix: a commit of the type fix patches a bug in your codebase (this correlates with PATCH in Semantic Versioning).
-feat: a commit of the type feat introduces a new feature to the codebase (this correlates with MINOR in Semantic Versioning).
-BREAKING CHANGE: a commit that has a footer BREAKING CHANGE:, or appends a ! after the type/scope, introduces a breaking API change (correlating with MAJOR in Semantic Versioning). A BREAKING CHANGE can be part of commits of any type.
-types other than fix: and feat: are allowed, for example @commitlint/config-conventional (based on the Angular convention) recommends build:, chore:, ci:, docs:, style:, refactor:, perf:, test:, and others.
-footers other than BREAKING CHANGE: <description> may be provided and follow a convention similar to git trailer format.
-```
+- Default mode: `acceptEdits` (no destructive ops).
+- Narrow write scope to repo files; deny secrets and dangerous commands.
 
 ---
 
-## Progressive Documentation Guide
+## 8) Progressive Documentation (templates)
 
-This project uses **Context-Driven Inline Documentation** - documentation that lives with the code and scales progressively based on complexity.
+(Kept from the previous version; unchanged apart from brevity.)
 
-### Documentation Levels
-
-**Level 0: Self-Documenting Code** (Required)
-- Use branded types and clear domain vocabulary
-- Function names describe intent, not implementation  
-- Git commits serve as change documentation
-
-**Level 1: Navigation README** (Required)
-- Keep `README.md` in project root
-- Provide mental model and key entry points
-- Link to major feature areas
-
-**Level 2: Domain READMEs** (Required for features)  
-- Add `README.md` in each major feature directory
-- Explain domain boundaries and purpose
-- List key files and their responsibilities
-
-**Level 3: AI Context Files** (Optional, for complex domains)
-- Create `.claude-context` files where AI needs guidance
-- Provide domain knowledge and exploration hints
-- Include common patterns and gotchas
-
-### Templates
-
-**Root README.md Template:**
+**Root `README.md`**
 ```markdown
 # Project Name
 
 ## Mental Model
-Brief description of what this system does and its primary purpose.
+One‑paragraph purpose.
 
-## Key Entry Points
-- `src/auth/` - User authentication and authorization
-- `src/api/` - HTTP API endpoints  
-- `src/core/` - Business logic and domain models
-- `src/ui/` - User interface components
+## Entry Points
+- `src/auth/` — authN/Z
+- `src/api/` — HTTP endpoints
+- `src/core/` — domain logic
+- `src/ui/` — UI components
 
 ## Getting Started
-[Development setup instructions]
+<dev setup>
 
-## Architecture Overview  
-[High-level system design - keep brief, details in domain READMEs]
+## Architecture
+Short overview; details in domain READMEs.
 ```
 
-**Domain README.md Template:**
-```markdown  
-# [Domain Name] 
+**Domain `README.md`**
+```markdown
+# [Domain]
 
 ## Purpose
-What this domain is responsible for and why it exists.
+What and why.
 
 ## Boundaries
-What is inside/outside this domain's responsibility.
+What’s in vs. out.
 
 ## Key Files
-- `types.ts` - Core domain types and interfaces
-- `service.ts` - Main business logic
-- `api.ts` - External integrations
-- `__tests__/` - Domain-specific tests
+- `types.ts` — core types
+- `service.ts` — business logic
+- `api.ts` — integrations
+- `__tests__/` — tests
 
-## Common Patterns
-[Domain-specific patterns developers should know]
+## Patterns
+Idioms to follow.
 
 ## Dependencies
-[Other domains this depends on]
+Upstream/downstream domains.
 ```
 
-**.claude-context Template:**
+**`.claude-context`**
 ```
-Domain: [Feature Name]
-Purpose: [Brief description]  
+Domain: [Feature]
+Purpose: [Brief]
 
 Key Concepts:
-- [Concept 1]: [Explanation]
-- [Concept 2]: [Explanation]
+- [Concept]: [Explanation]
 
 Important Files:
 - [file.ts]: [What it does]
-- [other.ts]: [What it does]
 
 Common Tasks:
-- "Add new [thing]": Start in [file.ts], follow pattern in [example]
-- "Debug [issue]": Check [file.ts] for [specific thing]
+- "Add new [thing]": Start in [file.ts]
 
-Gotchas:  
-- [Thing to watch out for]
-- [Common mistake]
+Gotchas:
+- [List]
 
-Dependencies: [List other domains this connects to]
+Dependencies: [List]
 ```
-
-### Maintenance
-
-- **When creating new features**: Add domain README.md
-- **When code becomes complex**: Consider adding .claude-context
-- **When refactoring**: Update affected READMEs  
-- **When debugging repeatedly**: Document in .claude-context
-
-This approach scales from simple projects (just good code + root README) to complex systems (full progressive documentation) based on actual need.
