@@ -116,8 +116,14 @@ function validateSSEUrl(url) {
     }
 
     // Check for path traversal attempts
-    if (url.includes("..") || url.includes("//")) {
-      throw new Error("URL contains path traversal or double slash patterns");
+    if (url.includes("..")) {
+      throw new Error("URL contains path traversal patterns");
+    }
+
+    // Check for double slash in path (not protocol)
+    const pathPart = urlObj.pathname + urlObj.search + urlObj.hash;
+    if (pathPart.includes("//")) {
+      throw new Error("URL contains invalid double slash patterns in path");
     }
 
     return urlObj.href; // Return normalized URL
@@ -280,17 +286,6 @@ const SERVER_SPECS = [
     command: "npx",
     args: () => ["-y", "@leonardsellem/n8n-mcp-server"],
     recommended: true,
-  },
-
-  // === Wrangler-based servers requiring special authentication ===
-  {
-    key: "cloudflare",
-    title: "Cloudflare",
-    promptType: "wrangler",
-    helpUrl:
-      "https://developers.cloudflare.com/workers/wrangler/install-and-update/",
-    command: "npx",
-    args: () => ["-y", "@cloudflare/mcp-server-cloudflare", "init"],
   },
 
   // === SSE transport servers requiring Claude Code authentication ===
