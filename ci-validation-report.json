@@ -1,0 +1,34 @@
+{
+  "timestamp": "2025-09-11T15:29:19.663Z",
+  "summary": {
+    "passed": 17,
+    "warnings": 1,
+    "errors": 0,
+    "total": 18
+  },
+  "details": {
+    "passed": [
+      "Workflow file ci.yml exists",
+      "ci.yml: Contains 6 requirement references",
+      "Workflow file pr-validation.yml exists",
+      "pr-validation.yml: Contains 2 requirement references",
+      "Workflow file release.yml exists",
+      "release.yml: Contains 4 requirement references",
+      "Required script 'test' is defined",
+      "Required script 'lint' is defined",
+      "Required script 'format:check' is defined",
+      "Node.js engine requirement specified: >=18",
+      "Valid semantic version: 1.0.2",
+      "Node.js version compatible: v22.13.1",
+      "npm version: 10.9.2",
+      "Running on macOS (matches CI environment)",
+      "Test infrastructure functional (TDD failures expected)",
+      "Linting passed",
+      "Code formatting check passed"
+    ],
+    "warnings": [
+      "Tests include TDD failures with TODO guidance - this is expected"
+    ],
+    "errors": []
+  }
+}

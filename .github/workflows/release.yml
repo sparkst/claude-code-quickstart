@@ -1,0 +1,280 @@
+name: Release Pipeline
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., v1.2.3)'
+        required: true
+        type: string
+      dry_run:
+        description: 'Perform dry run without actual release'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  # REQ-109 — Comprehensive release validation
+  release-validation:
+    name: Release Validation
+    runs-on: macos-latest
+    
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      is_prerelease: ${{ steps.version.outputs.is_prerelease }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Determine version info
+      id: version
+      run: |
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          VERSION="${{ github.event.inputs.version }}"
+          TAG="${{ github.event.inputs.version }}"
+        else
+          TAG=${GITHUB_REF#refs/tags/}
+          VERSION=${TAG#v}
+        fi
+        
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
+        
+        if [[ "$VERSION" =~ -[a-zA-Z] ]]; then
+          echo "is_prerelease=true" >> $GITHUB_OUTPUT
+        else
+          echo "is_prerelease=false" >> $GITHUB_OUTPUT
+        fi
+        
+        echo "Release version: $VERSION"
+        echo "Release tag: $TAG"
+        echo "Is prerelease: $([ "$VERSION" == *"-"* ] && echo "true" || echo "false")"
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci --prefer-offline --no-audit
+    
+    - name: Validate package.json version
+      run: |
+        PACKAGE_VERSION=$(node -p "require('./package.json').version")
+        if [[ "${{ steps.version.outputs.version }}" != "$PACKAGE_VERSION" ]]; then
+          echo "❌ Version mismatch: tag ${{ steps.version.outputs.version }} vs package.json $PACKAGE_VERSION"
+          exit 1
+        fi
+        echo "✅ Version validation passed: $PACKAGE_VERSION"
+    
+    - name: Run comprehensive test suite
+      run: |
+        echo "🧪 Running full test suite for release..."
+        npm run test:run
+        echo "✅ All tests passed"
+    
+    - name: Validate release artifacts
+      run: |
+        echo "📦 Validating release artifacts..."
+        npm pack --dry-run
+        npm run format:check
+        npm run lint
+        echo "✅ Release artifacts validated"
+    
+    - name: Generate release notes
+      run: |
+        echo "📝 Generating release notes..."
+        echo "# Release Notes for ${{ steps.version.outputs.tag }}" > release-notes.md
+        echo "" >> release-notes.md
+        echo "## Changes" >> release-notes.md
+        echo "" >> release-notes.md
+        
+        # Get commits since last tag
+        if git describe --tags --abbrev=0 HEAD~1 >/dev/null 2>&1; then
+          LAST_TAG=$(git describe --tags --abbrev=0 HEAD~1)
+          echo "### Commits since $LAST_TAG:" >> release-notes.md
+          git log --pretty=format:"- %s (%h)" $LAST_TAG..HEAD >> release-notes.md
+        else
+          echo "### All commits:" >> release-notes.md
+          git log --pretty=format:"- %s (%h)" >> release-notes.md
+        fi
+        
+        echo "" >> release-notes.md
+        echo "## Package Info" >> release-notes.md
+        echo "- Version: ${{ steps.version.outputs.version }}" >> release-notes.md
+        echo "- Built on: $(date -u)" >> release-notes.md
+        echo "- Node.js compatibility: $(node -p "require('./package.json').engines.node")" >> release-notes.md
+    
+    - name: Upload release notes
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-notes
+        path: release-notes.md
+
+  # REQ-112 — Security validation for release
+  release-security:
+    name: Release Security Validation
+    runs-on: macos-latest
+    needs: release-validation
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci --prefer-offline --no-audit
+    
+    - name: Security audit (production dependencies)
+      run: |
+        echo "🔒 Running security audit for production dependencies..."
+        npm audit --audit-level=moderate --production
+        echo "✅ Security audit passed"
+    
+    - name: Validate package signatures
+      run: |
+        echo "🔐 Validating package signatures..."
+        npm audit signatures || echo "⚠️ Some packages lack verified signatures"
+        echo "✅ Signature validation completed"
+    
+    - name: License compliance check
+      run: |
+        echo "📜 Checking license compliance..."
+        npx license-checker --production --summary
+        npx license-checker --production --onlyAllow 'MIT;Apache-2.0;BSD;ISC;BSD-2-Clause;BSD-3-Clause;CC0-1.0;Unlicense'
+        echo "✅ License compliance verified"
+
+  # REQ-109 — Release deployment
+  release-deploy:
+    name: Deploy Release
+    runs-on: macos-latest
+    needs: [release-validation, release-security]
+    if: success() && github.event.inputs.dry_run != 'true'
+    
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        registry-url: 'https://registry.npmjs.org'
+    
+    - name: Install dependencies
+      run: npm ci --prefer-offline --no-audit
+    
+    - name: Build package
+      run: |
+        echo "📦 Building release package..."
+        npm pack
+        ls -la *.tgz
+        echo "✅ Package built successfully"
+    
+    - name: Pre-deployment validation
+      run: |
+        echo "🔍 Final pre-deployment validation..."
+        npm run test:run
+        npm run lint
+        npm run format:check
+        echo "✅ Pre-deployment validation passed"
+    
+    # Uncomment when ready for npm publishing
+    # - name: Publish to npm
+    #   run: |
+    #     echo "🚀 Publishing to npm..."
+    #     if [[ "${{ needs.release-validation.outputs.is_prerelease }}" == "true" ]]; then
+    #       npm publish --tag beta
+    #     else
+    #       npm publish
+    #     fi
+    #     echo "✅ Published to npm successfully"
+    #   env:
+    #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    
+    - name: Download release notes
+      uses: actions/download-artifact@v4
+      with:
+        name: release-notes
+    
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ needs.release-validation.outputs.tag }}
+        release_name: Release ${{ needs.release-validation.outputs.tag }}
+        body_path: release-notes.md
+        draft: false
+        prerelease: ${{ needs.release-validation.outputs.is_prerelease }}
+    
+    - name: Upload release artifacts
+      run: |
+        echo "📋 Creating release artifacts..."
+        echo "Release: ${{ needs.release-validation.outputs.tag }}" > release-info.txt
+        echo "Version: ${{ needs.release-validation.outputs.version }}" >> release-info.txt
+        echo "Deployed: $(date -u)" >> release-info.txt
+        echo "Commit: ${{ github.sha }}" >> release-info.txt
+        echo "Built on: macOS (GitHub Actions)" >> release-info.txt
+    
+    - name: Store deployment record
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-deployment-${{ needs.release-validation.outputs.version }}
+        path: |
+          *.tgz
+          release-info.txt
+        retention-days: 365
+
+  # REQ-111 — Release monitoring and notification
+  release-notify:
+    name: Release Notification
+    runs-on: macos-latest
+    needs: [release-validation, release-security, release-deploy]
+    if: always()
+    
+    steps:
+    - name: Determine release status
+      run: |
+        if [[ "${{ needs.release-deploy.result }}" == "success" || "${{ github.event.inputs.dry_run }}" == "true" ]]; then
+          echo "RELEASE_STATUS=success" >> $GITHUB_ENV
+          echo "STATUS_EMOJI=🚀" >> $GITHUB_ENV
+        else
+          echo "RELEASE_STATUS=failed" >> $GITHUB_ENV
+          echo "STATUS_EMOJI=❌" >> $GITHUB_ENV
+        fi
+    
+    - name: Release summary
+      run: |
+        echo "## ${{ env.STATUS_EMOJI }} Release Pipeline Report" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Version:** ${{ needs.release-validation.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Tag:** ${{ needs.release-validation.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Status:** ${{ env.RELEASE_STATUS }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Prerelease:** ${{ needs.release-validation.outputs.is_prerelease }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Dry Run:** ${{ github.event.inputs.dry_run || 'false' }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Job Results:" >> $GITHUB_STEP_SUMMARY
+        echo "- Validation: ${{ needs.release-validation.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Security: ${{ needs.release-security.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Deployment: ${{ needs.release-deploy.result }}" >> $GITHUB_STEP_SUMMARY

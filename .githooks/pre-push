@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# REQ-110 — Pre-push validation hook
+# This hook runs before pushing to ensure comprehensive validation
+
+set -e
+
+echo "🚀 Running pre-push validations..."
+
+# Full test suite
+echo "🧪 Running full test suite..."
+if ! npm run test:run; then
+  echo "❌ Tests failed. Fix issues before pushing."
+  exit 1
+fi
+echo "✅ Full test suite passed"
+
+# Linting and formatting
+echo "🔍 Final linting check..."
+if ! npm run lint; then
+  echo "❌ Linting issues found."
+  exit 1
+fi
+
+echo "📝 Final formatting check..."
+if ! npm run format:check; then
+  echo "❌ Formatting issues found."
+  exit 1
+fi
+
+# Security scan
+echo "🔍 Security validation..."
+if command -v npm audit >/dev/null 2>&1; then
+  npm audit --audit-level=moderate --production || echo "⚠️ Security audit completed with warnings"
+fi
+
+echo "✅ Pre-push validation completed successfully"
+echo "🚀 Ready to push!"

@@ -8,6 +8,7 @@ One-command CLI tool that sets up Claude Code with MCP servers, project scaffold
 - `templates/` — Project scaffolding templates (CLAUDE.md, README.md, settings)
 - `requirements/` — TDD requirements documentation with REQ IDs
 - `.claude/agents/` — Agent definitions for specialized workflows
+- `.github/` — CI/CD pipeline with quality gates, security scanning, and deployment automation
 
 ## Getting Started
 
@@ -75,14 +76,30 @@ For detailed implementation guidelines, see [CLAUDE.md](./CLAUDE.md).
 │   ├── cli.js                  # Main CLI implementation  
 │   ├── cli-mcp.spec.js        # MCP server tests
 │   └── cli.integration.spec.js # Integration tests
+├── .github/                    # CI/CD Pipeline Infrastructure
+│   ├── workflows/             # GitHub Actions workflows
+│   │   ├── ci.yml            # Main CI pipeline with quality gates
+│   │   ├── security.yml      # Security scanning and compliance
+│   │   ├── dashboard.yml     # Pipeline health monitoring
+│   │   ├── deploy.yml        # Production deployment
+│   │   ├── pr-validation.yml # Pull request validation
+│   │   └── release.yml       # Release management
+│   ├── README.md             # CI/CD domain documentation
+│   └── .claude-context       # CI/CD domain context
+├── .githooks/                  # Git hooks for local validation
+│   ├── pre-commit            # Format, lint, test, secret scan
+│   └── pre-push              # Full validation suite
 ├── test/                       # TDD-compliant test infrastructure
 │   ├── utils/                 # Test utilities with parameterized constants
 │   │   ├── test-constants.js  # Parameterized values (no hardcoded literals)
 │   │   ├── test-helpers.js    # Basic test utilities
+│   │   ├── github-actions-helpers.js # CI/CD workflow testing utilities
 │   │   ├── performance-helpers.js # Performance measurement utilities
 │   │   ├── error-simulation-helpers.js # Error testing utilities
 │   │   ├── real-environment-helpers.js # Environment testing
 │   │   └── e2e-helpers.js     # End-to-end test utilities
+│   ├── ci-cd/                 # CI/CD pipeline tests
+│   │   └── github-actions.spec.js # Comprehensive workflow validation
 │   ├── integration/           # Real environment testing
 │   ├── e2e/                  # End-to-end workflow tests
 │   ├── performance/          # <500ms responsiveness tests

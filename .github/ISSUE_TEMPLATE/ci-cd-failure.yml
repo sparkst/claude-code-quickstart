@@ -1,0 +1,183 @@
+name: CI/CD Pipeline Failure
+description: Report a CI/CD pipeline failure or issue
+title: "[CI/CD] Pipeline failure in workflow: "
+labels: ["ci/cd", "bug"]
+projects: []
+assignees:
+  - maintainers
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🚨 CI/CD Pipeline Failure Report
+        
+        Use this template to report failures in our CI/CD pipeline. This helps us track and resolve
+        infrastructure issues quickly to maintain development velocity.
+        
+        **Before submitting:** Check if this is a known issue by searching existing issues.
+
+  - type: dropdown
+    id: workflow-type
+    attributes:
+      label: Affected Workflow
+      description: Which GitHub Actions workflow is failing?
+      options:
+        - CI/CD Pipeline (ci.yml)
+        - PR Validation (pr-validation.yml)
+        - Both workflows
+        - Other workflow
+    validations:
+      required: true
+
+  - type: dropdown
+    id: failure-stage
+    attributes:
+      label: Failure Stage
+      description: At which stage did the pipeline fail?
+      options:
+        - Quality Gates
+        - Progressive Tests
+        - Security & Compliance
+        - Performance Impact Analysis
+        - Pipeline Health Monitoring
+        - Deployment
+        - Notifications
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: run-id
+    attributes:
+      label: Failed Run ID or URL
+      description: Provide the GitHub Actions run ID or URL of the failed run
+      placeholder: "https://github.com/owner/repo/actions/runs/123456789"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: node-version
+    attributes:
+      label: Node.js Version
+      description: Which Node.js version was the workflow running when it failed?
+      options:
+        - "18.x"
+        - "20.x"
+        - "22.x"
+        - "Multiple versions"
+        - "Unknown"
+    validations:
+      required: true
+
+  - type: textarea
+    id: error-output
+    attributes:
+      label: Error Output
+      description: |
+        Copy and paste the relevant error output from the failed job.
+        Include the full stack trace if available.
+      placeholder: |
+        Error: Command failed: npm run lint
+        > claude-code-quickstart@1.0.2 lint
+        > eslint *.js bin/*.js
+        
+        /Users/runner/work/repo/repo/bin/cli.js
+          123:45  error  'unused-var' is assigned a value but never used  no-unused-vars
+      render: text
+    validations:
+      required: true
+
+  - type: dropdown
+    id: reproducibility
+    attributes:
+      label: Issue Reproducibility
+      description: Can you reproduce this failure consistently?
+      options:
+        - "Always fails"
+        - "Fails intermittently"
+        - "Failed once, cannot reproduce"
+        - "Only fails in specific conditions"
+    validations:
+      required: true
+
+  - type: textarea
+    id: local-validation
+    attributes:
+      label: Local Validation Results
+      description: |
+        Have you run the local CI validation tools? Please provide the results.
+        Run: `npm run ci:validate` and paste the output.
+      placeholder: |
+        $ npm run ci:validate
+        🚀 Starting CI/CD local validation...
+        ✅ GitHub Actions workflow files validation passed
+        ❌ Code linting validation failed
+        ...
+      render: text
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: investigation-steps
+    attributes:
+      label: Investigation Steps
+      description: What troubleshooting steps have you already tried?
+      options:
+        - label: Re-ran the failed workflow
+        - label: Ran local CI validation (`npm run ci:validate`)
+        - label: Checked for recent dependency updates
+        - label: Verified Node.js version compatibility
+        - label: Checked for environment-specific issues
+        - label: Reviewed recent code changes that might cause the failure
+        - label: Searched existing issues for similar problems
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: |
+        Provide any additional context that might help diagnose the issue.
+        - Recent changes to CI/CD configuration
+        - External dependencies or services involved
+        - Timing or environmental factors
+        - Related PRs or commits
+      placeholder: |
+        - This started failing after merging PR #123
+        - Only fails on weekends (possibly related to external service availability)
+        - Might be related to recent npm registry issues
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority Level
+      description: How urgent is this CI/CD issue?
+      options:
+        - "🔥 Critical - Blocking all deployments"
+        - "⚠️ High - Affecting multiple developers"
+        - "📋 Medium - Intermittent issue"
+        - "📝 Low - Minor improvement needed"
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: What should have happened instead?
+      placeholder: "The pipeline should have completed successfully with all tests passing..."
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 🔧 Auto-Generated Information
+        
+        The following information will be automatically added by our CI/CD monitoring:
+        - Pipeline execution times and resource usage
+        - Comparison with recent successful runs
+        - System health metrics at the time of failure
+        
+        **Thank you for helping us maintain a reliable CI/CD pipeline!** 🚀

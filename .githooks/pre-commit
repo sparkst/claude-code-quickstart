@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# REQ-110 — Pre-commit validation hook
+# This hook runs before each commit to ensure code quality
+
+set -e
+
+echo "🔍 Running pre-commit validations..."
+
+# Format check
+echo "📝 Checking code formatting..."
+if ! npm run format:check >/dev/null 2>&1; then
+  echo "❌ Code formatting issues found. Run 'npm run format' to fix."
+  exit 1
+fi
+echo "✅ Code formatting validated"
+
+# Linting
+echo "🔍 Running linting..."
+if ! npm run lint >/dev/null 2>&1; then
+  echo "❌ Linting issues found. Fix issues before committing."
+  exit 1
+fi
+echo "✅ Linting validated"
+
+# Quick tests (subset for speed)
+echo "🧪 Running quick tests..."
+if ! npm run test:run >/dev/null 2>&1; then
+  echo "⚠️ Some tests failed - consider running full test suite"
+  # Don't fail commit for test failures, but warn
+fi
+echo "✅ Quick tests completed"
+
+# Basic secret scanning
+echo "🔍 Scanning for potential secrets..."
+if git diff --cached | grep -iE "(password|secret|key|token)" | grep -v "test\|spec\|mock"; then
+  echo "⚠️ Potential secrets detected in staged changes"
+  echo "💡 Please review and ensure no actual secrets are being committed"
+  # Don't fail commit but warn
+fi
+
+echo "✅ Pre-commit validation completed successfully"

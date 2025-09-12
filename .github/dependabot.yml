@@ -1,0 +1,57 @@
+version: 2
+updates:
+  # REQ-112 — Automated dependency management and security updates
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/Los_Angeles"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "maintainers"
+    assignees:
+      - "maintainers"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    # Group dependencies by type to reduce PR noise
+    groups:
+      production-dependencies:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "@types/*"
+          - "*eslint*"
+          - "*prettier*"
+          - "*vitest*"
+          - "*typescript*"
+      development-dependencies:
+        patterns:
+          - "@types/*"
+          - "*eslint*"
+          - "*prettier*"
+          - "*vitest*"
+          - "*typescript*"
+    # Only update to secure versions for production
+    versioning-strategy: "increase-if-necessary"
+    # Allow security patches explicitly
+    allow:
+      - dependency-type: "direct"
+        update-types: ["version-update:semver-patch", "version-update:semver-minor"]
+      - dependency-type: "indirect"
+        update-types: ["version-update:semver-patch"]
+
+  # REQ-112 — GitHub Actions dependency updates
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "tuesday" 
+      time: "09:00"
+      timezone: "America/Los_Angeles"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "ci"
+      include: "scope"

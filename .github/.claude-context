@@ -1,0 +1,34 @@
+Domain: CI/CD Pipeline
+Purpose: Enterprise-grade GitHub Actions workflow system with progressive testing, security scanning, and deployment automation for Claude Code Quickstart
+
+Key Concepts:
+- Quality Gates: Progressive validation pipeline (ci → security → deploy → notify)
+- Matrix Testing: Multi-Node.js version compatibility (18.x, 20.x, 22.x) on macOS-latest
+- Security-First: SAST, dependency audit, secret scanning, license compliance, supply chain validation
+- TDD Integration: REQ-ID tracking in workflow comments and test correlation
+- Progressive Monitoring: Pipeline health dashboard with metrics collection and alerting
+
+Important Files:
+- workflows/ci.yml: Main quality gates pipeline with comprehensive validation steps
+- workflows/security.yml: Dedicated security scanning with 6 validation types
+- workflows/dashboard.yml: Pipeline health monitoring with artifact collection
+- test/ci-cd/github-actions.spec.js: 156 comprehensive tests covering all workflow scenarios
+- test/utils/github-actions-helpers.js: Pipeline validation utilities with parseGitHubWorkflow()
+- .githooks/pre-commit: Local validation hook for format/lint/tests/secrets
+
+Common Tasks:
+- "Add security validation": Edit workflows/security.yml, update validateSecurityScanning() helper, add test case with REQ-ID
+- "Modify deployment gate": Update workflows/deploy.yml environment config, adjust validateDeploymentPipeline() helper
+- "Add quality check": Insert step in workflows/ci.yml, update job dependencies, add corresponding test validation
+- "Update monitoring": Edit workflows/dashboard.yml metrics collection, adjust monitoring helper functions
+
+Gotchas:
+- macOS runner limitations: git-secrets may not be available, use fallback patterns in security scanning
+- Workflow dependencies: strict job ordering required (security before deploy), use if: success() conditions
+- Secret management: exclude test files from pattern scanning, use proper GitHub secrets syntax
+- REQ traceability: every workflow job must reference requirement ID in comments for TDD compliance
+- Performance targets: CI <8min, Security <5min, Deploy <3min, Tests <2.5min, Success rate >95%
+
+Dependencies: 
+- Upstream: Source code, Git repository, package.json configuration, test suite
+- Downstream: npm registry, GitHub artifacts storage, GitHub environments, monitoring dashboard
