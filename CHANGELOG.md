@@ -5,6 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.6] - 2025-09-12
+
+### Added
+- **Smart Server Detection (REQ-500)**
+  - Added `checkServerStatus()` function to intelligently detect existing MCP server configurations
+  - Eliminates false failure messages during setup when servers are already configured
+  - Provides clear status feedback with actionable guidance for authentication setup
+
+- **Enhanced Post-Setup Experience (REQ-501)**
+  - Redesigned `showPostSetupGuide()` with comprehensive component listings
+  - Added specific practical examples for each installed MCP server
+  - Clear categorization of what was installed vs. next steps for immediate productivity
+
+- **Comprehensive MCP Server Integration Guidelines (REQ-502)**
+  - Added complete MCP Server Integration Guidelines section to CLAUDE.md
+  - Server-specific usage boundaries and best practices for Supabase, GitHub, Cloudflare, Brave Search, and Tavily
+  - Integration patterns mapped to QShortcuts workflow (qidea, qplan, qcode, qcheck, qux, qdoc)
+  - Clear separation between research tools vs. implementation tools
+
+- **Zero-Code Research Workflow (REQ-503)**
+  - Introduced `qidea` shortcut for pure research and ideation mode
+  - "Whiteboarding with a top engineer" approach - explicitly prohibits code output
+  - Focus on architecture options, UX recommendations, and testing strategies
+  - Integrated with Brave/Tavily MCP servers for comprehensive research capabilities
+
+### Enhanced
+- **User Experience Improvements**
+  - Server configuration now shows clear status indicators (✅ already configured vs. ⚠️ installing)
+  - Post-setup guide categorizes deliverables into "WHAT YOU JUST GOT" and "WHAT TO DO NEXT"
+  - Specific examples for each MCP server's intended use cases and workflows
+  - Enhanced guidance for immediate next steps after setup completion
+
+### Documentation
+- **MCP Integration Patterns**
+  - Comprehensive server usage boundaries and workflow integration
+  - Clear examples of when to use each server type during development phases
+  - QShortcuts integration map showing which servers work best with which workflows
+  - Research vs. implementation tool categorization for better workflow organization
+
+### Technical
+- Smart server detection with zero false positives during configuration
+- Enhanced post-setup user experience with actionable guidance
+- Comprehensive MCP server integration documentation for all supported servers
+- Zero-code research workflow integration with existing QShortcuts system
+
 ## [1.0.5] - 2025-09-12
 
 ### Added

@@ -1,11 +1,12 @@
 # Testing Infrastructure
 
 ## Purpose
-Multi-layered testing architecture following strict TDD methodology with parameterized constants, meaningful failures, and macOS-specific testing capabilities.
+Production-ready multi-layered testing architecture following strict TDD methodology with parameterized constants, meaningful failures, comprehensive security validation (70 tests), and macOS-specific testing capabilities.
 
 ## Boundaries
 **In Scope:**
-- Unit, integration, E2E, and performance testing
+- Unit, integration, E2E, performance, and security validation testing
+- Comprehensive security test suite (REQ-400 series) with 70 tests covering URL validation and command injection prevention
 - macOS-specific error boundary testing  
 - TDD-compliant test utilities with meaningful failures
 - Parameterized constants (zero hardcoded literals per CLAUDE.md)
@@ -26,10 +27,11 @@ Multi-layered testing architecture following strict TDD methodology with paramet
 
 ## Testing Layers
 1. **Unit Tests** — Function-level testing with parameterized inputs
-2. **Integration Tests** — Real MCP server connections and configurations  
-3. **E2E Tests** — Full CLI workflow validation
-4. **Performance Tests** — CLI responsiveness validation (<500ms startup)
-5. **Error Boundary Tests** — macOS-specific error handling (permissions, Gatekeeper)
+2. **Security Tests** — Comprehensive URL validation, command injection prevention, trusted domain enforcement (70 tests)
+3. **Integration Tests** — Real MCP server connections and configurations  
+4. **E2E Tests** — Full CLI workflow validation
+5. **Performance Tests** — CLI responsiveness validation (<500ms startup)
+6. **Error Boundary Tests** — macOS-specific error handling (permissions, Gatekeeper)
 
 ## TDD Methodology
 All tests follow strict TDD compliance:

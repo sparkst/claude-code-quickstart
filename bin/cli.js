@@ -220,6 +220,39 @@ function getExistingServerEnv(serverKey) {
   }
 }
 
+// REQ-500: Smart server detection to avoid false failure messages
+function checkServerStatus(serverKey) {
+  try {
+    const fs = require("fs");
+    const path = require("path");
+    const os = require("os");
+
+    const claudeSettingsPath = path.join(
+      os.homedir(),
+      ".claude",
+      "settings.json"
+    );
+    if (!fs.existsSync(claudeSettingsPath)) {
+      return { exists: false, status: "not_configured" };
+    }
+
+    const settings = JSON.parse(fs.readFileSync(claudeSettingsPath, "utf8"));
+    const serverConfig = settings.mcpServers && settings.mcpServers[serverKey];
+
+    if (!serverConfig) {
+      return { exists: false, status: "not_configured" };
+    }
+
+    return {
+      exists: true,
+      status: "configured",
+      config: serverConfig,
+    };
+  } catch {
+    return { exists: false, status: "error" };
+  }
+}
+
 // REQ-407: Organize SERVER_SPECS by server type for better maintainability
 const SERVER_SPECS = [
   // === NPM-based MCP servers with API keys ===
@@ -514,10 +547,26 @@ async function configureClaudeCode() {
           serverConfig.extraArgs || []
         );
 
-        console.log(`  Installing ${spec.title}...`);
-        execSync(command, { stdio: "inherit" });
-        console.log(`  ✅ ${spec.title} configured successfully`);
-        configuredServers.push(spec.title);
+        // REQ-500: Check if server already exists before attempting installation
+        const serverStatus = checkServerStatus(spec.key);
+
+        if (serverStatus.exists) {
+          console.log(`  ✅ ${spec.title} already configured`);
+          console.log(
+            `  ℹ️  Run /mcp ${spec.key} in Claude Code if authentication is needed`
+          );
+          configuredServers.push(spec.title);
+        } else {
+          console.log(`  Installing ${spec.title}...`);
+          try {
+            execSync(command, { stdio: "inherit" });
+            console.log(`  ✅ ${spec.title} configured successfully`);
+            configuredServers.push(spec.title);
+          } catch {
+            console.log(`  ❌ ${spec.title} installation failed`);
+            failedServers.push(spec.title);
+          }
+        }
       } else if (serverConfig && serverConfig.action === "disable") {
         // Remove existing server
         try {
@@ -748,12 +797,37 @@ function checkVSCodeExtension() {
   }
 }
 
+// REQ-501: Enhanced post-setup experience with specific guidance
 function showPostSetupGuide() {
   const vsCodeInstalled = checkVSCodeExtension();
 
   console.log("\n" + "=".repeat(60));
-  console.log("✅ Setup complete! Here's what to do next:");
+  console.log("✅ Setup complete! Here's what you have and what to do next:");
   console.log("=".repeat(60));
+
+  // List what was just installed
+  console.log("\n🎁 WHAT YOU JUST GOT:");
+  console.log(
+    "  ✓ CLAUDE.md - Your AI coding rules and instructions for Claude Code"
+  );
+  console.log("  ✓ MCP Servers - Direct integrations with external services:");
+  console.log("    • Supabase - Database operations and auth");
+  console.log("    • GitHub - Repository management and code analysis");
+  console.log("    • Brave Search - Web search and current information");
+  console.log("    • Tavily - Research and web content extraction");
+  console.log("    • Context7 - Documentation and API references");
+  console.log("    • n8n - Workflow automation and integrations");
+  console.log("    • Cloudflare SSE - Worker bindings and build management");
+  console.log("  ✓ Claude Code Agents - Specialized AI assistants:");
+  console.log(
+    "    • Planner - Breaks down requirements into implementation steps"
+  );
+  console.log(
+    "    • Test Writer - Creates comprehensive test suites following TDD"
+  );
+  console.log("    • PE Reviewer - Principal Engineer-level code reviews");
+  console.log("    • Debugger - Finds and fixes issues with minimal changes");
+  console.log("    • Security Reviewer - Security-focused code analysis");
 
   console.log("\n🚀 IMMEDIATE NEXT STEPS:");
   console.log("  1. Open VS Code in your project directory");
@@ -765,15 +839,32 @@ function showPostSetupGuide() {
     console.log("  4. ✓ Claude extension already installed");
   }
 
-  console.log("\n🎯 FIRST PROJECT CHECKLIST:");
-  console.log("  □ Create a new project: npx claude-code-quickstart init");
-  console.log("  □ Open CLAUDE.md to see your coding rules");
-  console.log('  □ Try: "Hey Claude, help me build a simple React app"');
-  console.log('  □ Test MCP servers: "Search for X" (uses Brave Search)');
-
-  console.log("\n📚 CONFIGURED MCP SERVERS:");
-  console.log("  • Check your MCP servers with: claude mcp list");
-  console.log("  • Test them with /mcp command in Claude Code");
+  console.log("\n⚡ CLAUDE CODE SHORTCUTS - Your New Superpowers:");
+  console.log(
+    "  1. qnew - Run before each new feature to refresh Claude Code's instructions"
+  );
+  console.log(
+    "     Example: Type 'qnew' then 'I want to add user authentication'"
+  );
+  console.log("");
+  console.log("  2. qplan - Creates detailed implementation plans");
+  console.log(
+    "     Example: 'qplan - I want a new web form that collects email, first name, and last name'"
+  );
+  console.log("");
+  console.log("  3. qcode - Executes the plan and writes the code");
+  console.log("     Example: After qplan, just type 'qcode' to implement");
+  console.log("");
+  console.log("  4. qcheck - Principal Engineer code review + QA analysis");
+  console.log(
+    "     Example: 'qcheck' - If issues found, run qplan to fix them, then qcode + qcheck"
+  );
+  console.log("");
+  console.log("  5. qdoc - Updates all documentation (user and developer)");
+  console.log("     Example: 'qdoc' after completing features");
+  console.log("");
+  console.log("  6. qgit - Commits your work to Git with proper messages");
+  console.log("     Example: 'qgit' when ready to save your progress");
 
   // REQ-406: Use cached constant instead of O(n) search
   if (HAS_CLOUDFLARE_SSE_SERVERS) {
@@ -781,25 +872,29 @@ function showPostSetupGuide() {
     console.log(
       "  ⚠️  IMPORTANT: For Cloudflare servers, you must authenticate in Claude Code:"
     );
-    console.log("  • Open Claude Code");
-    console.log("  • Run: /mcp cloudflare-bindings (if configured)");
-    console.log("  • Run: /mcp cloudflare-builds (if configured)");
-    console.log("  • Follow the authentication prompts");
+    console.log("  • Open Claude Code and run: /mcp cloudflare-bindings");
+    console.log("  • Open Claude Code and run: /mcp cloudflare-builds");
+    console.log("  • Follow the authentication prompts for each");
     console.log(
       "  ⚠️  Note: 'npx wrangler login' does NOT work with MCP servers"
     );
   }
 
-  console.log("\n💡 PRO TIPS:");
-  console.log("  • Use qnew, qplan, qcode shortcuts for faster development");
-  console.log("  • Manage MCP servers: claude mcp add/remove/list");
-  console.log("  • VS Code shortcuts: Cmd+Esc (Mac) / Ctrl+Esc (Windows)");
+  console.log("\n📖 CLAUDE.MD - YOUR AI CODING CONSTITUTION:");
+  console.log("  • Contains your project's coding rules and TDD methodology");
+  console.log("  • Guides Claude Code on how to write, test, and review code");
+  console.log("  • Includes MCP server usage patterns and best practices");
+  console.log("  • Updated automatically as you configure new tools");
 
-  console.log("\n📖 RESOURCES:");
-  console.log("  • Troubleshooting → https://docs.anthropic.com/claude-code");
-  console.log("  • CLAUDE.md rules → ./CLAUDE.md (or wherever you init)");
+  console.log("\n🎯 TRY IT NOW:");
+  console.log("  1. Create a new project: npx claude-code-quickstart init");
+  console.log("  2. Open CLAUDE.md to see your coding rules");
+  console.log('  3. Try: "qnew" then "I want to build a simple todo app"');
+  console.log(
+    '  4. Test MCP: "Search for React best practices 2024" (uses Brave Search)'
+  );
 
-  console.log("\nReady to build something amazing! 🎉\n");
+  console.log("\nReady to build something amazing with AI superpowers! 🚀✨\n");
 }
 
 function createChecksum(content) {

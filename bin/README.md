@@ -1,16 +1,19 @@
 # CLI Implementation
 
 ## Purpose
-Main CLI implementation that orchestrates MCP server configuration, project scaffolding, and Claude Code setup. Handles interactive prompts, template processing, and environment validation.
+Production-ready CLI implementation that orchestrates MCP server configuration, project scaffolding, and Claude Code setup. Features smart server detection to avoid false failure messages, enhanced post-setup experience with specific component listings, and comprehensive MCP integration guidelines for zero-code research workflows.
 
 ## Boundaries
 **In Scope:**
-- MCP server discovery and configuration (stdio, SSE transport)
-- Interactive user prompts for API keys and settings
-- Template processing and file scaffolding
-- Environment validation and security enforcement
-- Agent registration with Claude Code
-- SSE URL validation and command injection prevention
+- Smart MCP server detection with `checkServerStatus()` to avoid false failure messages during setup
+- Enhanced post-setup experience with `showPostSetupGuide()` providing specific component listings and practical examples
+- Interactive user prompts for API keys and settings with masked re-entry support
+- Template processing and file scaffolding with TDD methodology and comprehensive MCP integration guidelines
+- Advanced environment validation and security enforcement
+- Agent registration with Claude Code including zero-code research workflow (qidea)
+- Comprehensive SSE URL validation and command injection prevention
+- Server conflict resolution (fixed "MCP server cloudflare already exists" errors)
+- URL validation false positive fixes for legitimate https:// URLs
 
 **Out of Scope:**
 - Actual MCP server implementations (delegates to external packages)
@@ -18,8 +21,8 @@ Main CLI implementation that orchestrates MCP server configuration, project scaf
 - Network operations beyond basic validation
 
 ## Key Files
-- `cli.js` — Main entry point with command routing and MCP server specs
-- `cli-mcp.spec.js` — Unit tests for MCP server configurations and utilities
+- `cli.js` — Main entry point with smart server detection, enhanced post-setup guidance, and MCP server specs
+- `cli-mcp.spec.js` — Unit tests for MCP server configurations and utilities including smart detection tests
 - `cli.integration.spec.js` — End-to-end tests for scaffolding and setup flows
 - `postinstall.js` — Post-installation hooks and setup verification
 
@@ -101,6 +104,25 @@ try {
 
 ## Common Operations
 
+### Smart Server Detection Usage
+The `checkServerStatus()` function provides intelligent server detection:
+```javascript
+const serverStatus = checkServerStatus(spec.key);
+if (serverStatus.exists) {
+  console.log(`✅ ${spec.title} already configured`);
+  console.log(`ℹ️  Run /mcp ${spec.key} in Claude Code if authentication is needed`);
+} else {
+  // Proceed with installation
+}
+```
+
+### Enhanced Post-Setup Experience
+The `showPostSetupGuide()` provides comprehensive guidance:
+- "WHAT YOU JUST GOT" section listing specific components installed
+- "WHAT TO DO NEXT" section with practical examples for each MCP server
+- Clear categorization of research vs. implementation tools
+- Integration with qidea zero-code research workflow
+
 ### Adding New MCP Server
 1. Add server spec to appropriate section in `SERVER_SPECS` array in `cli.js`
    - NPM servers: standard command/args pattern
@@ -109,13 +131,16 @@ try {
 2. Include required fields: title, helpUrl, and type-specific fields
 3. Add corresponding test in `cli-mcp.spec.js` with REQ ID
 4. Update documentation with new server capabilities and security notes
+5. Update `showPostSetupGuide()` with server-specific usage examples
 
-### Adding SSE Server Support
+### Adding SSE Server Support (Production-Ready)
 1. Add server spec with `promptType: "sse"` and valid `sseUrl`
 2. URL must be HTTPS from trusted domain (*.mcp.cloudflare.com, localhost)
-3. Test URL validation with `validateSSEUrl()` function
+3. Test URL validation with `validateSSEUrl()` function (includes false positive testing)
 4. Add integration test verifying SSE command generation
 5. Update post-setup guide with SSE-specific authentication steps
+6. Ensure no server key conflicts in SERVER_SPECS array
+7. Validate buildSSECommand() produces correct array form (injection-safe)
 
 ### Debugging MCP Connection Issues
 1. Check MCP server logs: `claude mcp list`

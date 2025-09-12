@@ -6,12 +6,14 @@
 
 ## Table of Contents
 1. Principles (tightened)
-2. Requirements Discipline (the “requirements.lock” pattern)
+2. Requirements Discipline (the "requirements.lock" pattern)
 3. TDD Enforcement Flow
 4. QShortcuts (verbatim) + Agent Guidance
-5. Sub‑Agent Suite (definitions live under `.claude/agents/`)
-6. Permissions & Modes (`.claude/settings.json`)
-7. Progressive Documentation (unchanged templates)
+5. MCP Server Integration Guidelines
+6. Writing Functions Best Practices
+7. Writing Tests Best Practices
+8. Permissions & Modes (`.claude/settings.json`)
+9. Progressive Documentation (templates)
 
 ---
 
@@ -174,6 +176,15 @@ You are an expert technical writer.  Review the work we just did and ensure it i
 ```
 **Agent:** docs-writer
 
+### QIDEA
+```
+Research and ideation mode: "whiteboarding with a top engineer"
+Focus on architecture options, UX recommendations, testing strategies.
+Explicitly prohibit code output - pure strategic/research focus.
+Provide options and recommendations on designs, UX, testing approaches.
+```
+**Agent:** general-purpose (research focus)
+
 ### QGIT
 ```
 Add all changes to staging, create a commit, and push to remote.
@@ -196,7 +207,79 @@ footers other than BREAKING CHANGE: <description> may be provided and follow a c
 
 ---
 
-## 5) Writing Functions Best Practices (restored)
+## 5) MCP Server Integration Guidelines
+
+### Purpose
+MCP (Model Context Protocol) servers extend Claude Code with specialized capabilities for specific domains. Each server provides targeted tools for distinct workflows within the TDD development cycle.
+
+### Server Types and Usage Boundaries
+
+#### **Supabase MCP Server**
+- **Primary Use:** Database operations, schema management, authentication workflows
+- **Best For:** `qcode` database implementations, `qcheck` data validation, `qdoc` API documentation
+- **Examples:**
+  - Creating tables and RLS policies during `qcode` phase
+  - Validating database schema changes in `qcheck` 
+  - Generating TypeScript types for API documentation in `qdoc`
+- **Integration:** Use within TDD cycle after failing tests define database requirements
+
+#### **GitHub MCP Server**
+- **Primary Use:** Repository management, issue tracking, pull request workflows
+- **Best For:** `qgit` operations, `qdoc` changelog generation, `qplan` issue analysis
+- **Examples:**
+  - Creating branches and pull requests during `qgit`
+  - Analyzing existing issues during `qplan` phase
+  - Updating project documentation and changelogs in `qdoc`
+- **Integration:** Supports the entire TDD workflow from planning through deployment
+
+#### **Cloudflare SSE Servers**
+- **Primary Use:** Real-time data streaming, WebSocket alternatives, server-sent events
+- **Best For:** `qcode` real-time features, `qcheck` performance validation, `qux` real-time UX testing
+- **Examples:**
+  - Implementing live updates during `qcode` implementation
+  - Validating streaming performance in `qcheck`
+  - Testing real-time user experiences in `qux`
+- **Integration:** Primarily used during implementation and validation phases
+
+#### **Brave Search MCP Server**
+- **Primary Use:** Web research, current information gathering, competitive analysis
+- **Best For:** `qidea` research, `qplan` market analysis, `qdoc` external references
+- **Examples:**
+  - Researching best practices and patterns during `qidea`
+  - Analyzing competitor approaches during `qplan`
+  - Finding authoritative sources for technical documentation in `qdoc`
+- **Integration:** Research and planning phases, not implementation
+
+#### **Tavily Search MCP Server**
+- **Primary Use:** Advanced web crawling, site mapping, content extraction
+- **Best For:** `qidea` comprehensive research, `qplan` system analysis, `qdoc` reference gathering
+- **Examples:**
+  - Deep research on architectural patterns during `qidea`
+  - Mapping existing system architectures during `qplan`
+  - Extracting technical specifications for documentation in `qdoc`
+- **Integration:** Pre-implementation research and documentation phases
+
+### MCP Integration with QShortcuts
+
+- **QIDEA**: Use Brave/Tavily for research; avoid Supabase/GitHub (no code output)
+- **QPLAN**: All servers appropriate for analysis and planning
+- **QCODE**: Supabase for DB, Cloudflare for real-time, GitHub for version control
+- **QCHECK**: All servers for validation, testing, and quality assurance
+- **QUX**: Cloudflare for real-time UX, Brave/Tavily for UX pattern research
+- **QDOC**: GitHub for changelogs, Brave/Tavily for authoritative references
+- **QGIT**: GitHub for PR management, repository operations
+
+### Security and Boundaries
+
+- **Supabase**: Only use with authenticated projects; validate all database operations
+- **GitHub**: Respect repository permissions; use appropriate branch strategies
+- **Cloudflare**: Validate all SSE URLs (HTTPS only, trusted domains)
+- **Search Servers**: No authentication required; rate-limit aware
+- **General**: Each server operates within TDD methodology - tests first, then implementation
+
+---
+
+## 6) Writing Functions Best Practices (restored)
 
 When evaluating whether a function you implemented is good or not, use this checklist:
 
@@ -216,7 +299,7 @@ IMPORTANT: you SHOULD NOT refactor out a separate function unless there is a com
 
 ---
 
-## 6) Writing Tests Best Practices (restored)
+## 7) Writing Tests Best Practices (restored)
 
 When evaluating whether a test you've implemented is good or not, use this checklist:
 
@@ -253,14 +336,14 @@ describe('properties', () => {
 
 ---
 
-## 7) Permissions & Modes (`.claude/settings.json`)
+## 8) Permissions & Modes (`.claude/settings.json`)
 
 - Default mode: `acceptEdits` (no destructive ops).
 - Narrow write scope to repo files; deny secrets and dangerous commands.
 
 ---
 
-## 8) Progressive Documentation (templates)
+## 9) Progressive Documentation (templates)
 
 (Kept from the previous version; unchanged apart from brevity.)
 

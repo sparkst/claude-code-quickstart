@@ -1,58 +1,70 @@
-# Requirements Lock - Cloudflare SSE MCP Security & Quality Fixes
+# Requirements Lock - Cloudflare SSE MCP Setup UX Improvements
 
-## REQ-400: Security - URL Parameter Validation (P1 Critical)
-- Acceptance: Validate SSE URL parameters in buildClaudeMcpCommand before using them
-- Acceptance: Sanitize URLs to prevent command injection vulnerabilities 
-- Acceptance: Only allow HTTPS URLs from trusted domains (*.cloudflare.com, localhost for dev)
-- Acceptance: Reject URLs with shell metacharacters, path traversal, or injection attempts
-- Acceptance: Return clear error messages for invalid URLs rather than failing silently
-- Notes: Critical security issue - URL params passed directly to shell without validation
+*Snapshot created: 2025-09-12*
+*Source: requirements/current.md*
 
-## REQ-401: Missing Logic - SSE Server Routing (P1 Critical)
-- Acceptance: Add missing promptSSEServerForCommand routing in configureClaudeCode() switch statement
-- Acceptance: Ensure SSE servers are processed by correct prompt handler, not falling through to standard
-- Acceptance: Route spec.promptType === "sse" to promptSSEServerForCommand function
-- Acceptance: Maintain existing routing patterns for other promptTypes (path, wrangler, dual)
-- Notes: Currently SSE servers fall through to default case and receive incorrect handling
+## REQ-500: Smart Server Detection and Status Display
+- **Acceptance Criteria:**
+  - Pre-check if SSE servers (Supabase, GitHub, etc.) already exist before installation
+  - Display differentiated status messages: "✓ Already configured", "⚠️ Needs authentication", "❌ Failed"
+  - Avoid showing error messages for successfully configured servers
+  - Provide contextual next steps based on server status
+  - Replace generic "Failed" status with specific failure reasons
+- **Non-Goals:** 
+  - Auto-fixing authentication issues
+  - Modifying existing server configurations without user consent
+- **Notes:** 
+  - Current UX shows "❌ Failed" even for working servers due to "already exists" condition
+  - Users are confused when verification shows "✓ Connected" after seeing failure
 
-## REQ-402: User Guidance - Fix Misleading Messages (P1 Critical) 
-- Acceptance: Remove or correct misleading "npx wrangler login doesn't work with MCP servers" message
-- Acceptance: Provide accurate guidance that wrangler login IS required for the original cloudflare server
-- Acceptance: Clarify distinction between cloudflare (wrangler) vs cloudflare-bindings/builds (SSE) servers
-- Acceptance: Update user messaging to be specific about which authentication method applies to which server
-- Notes: Current messaging confuses users about wrangler authentication requirements
+## REQ-501: Enhanced Post-Setup Experience and Guidance
+- **Acceptance Criteria:**
+  - List all installed components (MCP servers, agents) with clear descriptions of their purposes
+  - Explain CLAUDE.md role and how it guides Claude Code behavior
+  - Provide practical q* shortcut examples with real-world use cases
+  - Remove generic "Pro Tips" section in favor of specific actionable guidance
+  - Include next steps tailored to what was actually installed
+- **Non-Goals:**
+  - Overwhelming users with every possible feature
+  - Generic documentation that applies to all setups
+- **Notes:**
+  - Current post-setup guide is too generic and doesn't reflect what was actually installed
 
-## REQ-403: Documentation - Invalid REQ Reference (P1 Critical)
-- Acceptance: Remove or correct REQ-303 comment that references non-existent requirement
-- Acceptance: Ensure all REQ ID comments in code map to actual requirements in requirements.lock.md
-- Acceptance: Update comment to reference correct requirement ID (REQ-400 or REQ-401)
-- Acceptance: Establish process to validate REQ ID consistency between code and docs
-- Notes: Code references REQ-303 but requirement doesn't exist in requirements documentation
+## REQ-502: CLAUDE.md MCP Server Integration Guidelines
+- **Acceptance Criteria:**
+  - Update CLAUDE.md template with specific guidance for each MCP server type
+  - Include practical examples: Supabase for DB operations, GitHub for repo management, etc.
+  - Define clear boundaries for when to use which server
+  - Integrate MCP server usage into existing q* shortcut workflows
+  - Provide context on server capabilities within TDD workflow
+- **Non-Goals:**
+  - Replacing existing CLAUDE.md structure
+  - Adding MCP-specific shortcuts that conflict with existing ones
+- **Notes:**
+  - Current CLAUDE.md doesn't mention MCP servers or how they integrate with workflows
 
-## REQ-404: Maintainability - Single Responsibility (P2 Should Fix)
-- Acceptance: Refactor buildClaudeMcpCommand to separate URL handling from command building
-- Acceptance: Extract URL validation into validateSSEUrl(url) function with clear error handling
-- Acceptance: Extract SSE command building into buildSSECommand(spec, scope) function
-- Acceptance: Maintain backward compatibility while improving code organization
-- Notes: Function currently violates SRP by handling both validation and command construction
+## REQ-503: qidea Shortcut for Zero-Code Research and Ideation
+- **Acceptance Criteria:**
+  - Add "qidea" shortcut to CLAUDE.md QShortcuts section
+  - Define as research and ideation tool for "whiteboarding with a top engineer"
+  - Focus on architecture options, UX recommendations, testing strategies
+  - Explicitly prohibit code output - pure strategic/research focus
+  - Include in agent activation guidance for appropriate agent selection
+- **Non-Goals:**
+  - Producing implementation code
+  - Overlapping with existing planning shortcuts (QNEW/QPLAN)
+- **Notes:**
+  - Fills gap between high-level planning and implementation phases
 
-## REQ-405: Testing - Real Integration Coverage (P2 Should Fix)
-- Acceptance: Update integration tests to verify actual SERVER_SPECS array content, not file string matching
-- Acceptance: Test actual prompt routing behavior, not just string presence in source code
-- Acceptance: Create helper functions to validate SERVER_SPECS entries match expected schema
-- Acceptance: Test end-to-end SSE server configuration flow with mock execSync
-- Notes: Current tests only verify source code contains strings, not functional behavior
-
-## REQ-406: Performance - Efficient Server Lookup (P2 Should Fix)
-- Acceptance: Replace O(n) search in showPostSetupGuide with efficient lookup mechanism
-- Acceptance: Create hasCloudflareSSEServers boolean flag set during configuration
-- Acceptance: Cache server type information to avoid repeated linear searches
-- Acceptance: Maintain same user experience while improving performance
-- Notes: showPostSetupGuide checks for Cloudflare SSE servers using slow O(n) search every time
-
-## REQ-407: Organization - Clear Server Type Structure (P2 Should Fix)  
-- Acceptance: Organize SERVER_SPECS array by server type (npm, wrangler, sse, path)
-- Acceptance: Add clear comments delineating server type sections
-- Acceptance: Group related servers together for better maintainability
-- Acceptance: Ensure consistent properties within each server type group
-- Notes: Current array mixes different server types without clear organization or patterns
+## REQ-504: UX Flow State Machine for Server Management
+- **Acceptance Criteria:**
+  - Implement clear state transitions: Not Installed → Installing → Configured → Authenticated → Ready
+  - Provide appropriate user actions for each state
+  - Show progress indicators during installation/configuration
+  - Handle error states with specific recovery actions
+  - Cache server status to avoid repeated checks
+- **Non-Goals:**
+  - Auto-recovery from all error states
+  - Real-time status monitoring
+- **Notes:**
+  - Current flow lacks clear state management and user feedback

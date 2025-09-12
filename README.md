@@ -24,17 +24,19 @@ claude-code-quickstart
 ```
 
 This will:
-- Set up MCP servers (Tavily, Brave Search, Context7, Supabase, GitHub, n8n, Cloudflare SSE)
-- Configure Claude Code settings with safe permissions and security validation
-- Scaffold project structure with TDD methodology
-- Create agent definitions for specialized workflows
+- Set up MCP servers with smart server detection (Tavily, Brave Search, Context7, Supabase, GitHub, n8n, Cloudflare SSE with production-ready bindings and builds)
+- Configure Claude Code settings with safe permissions and advanced security validation
+- Scaffold project structure with TDD methodology and REQ-ID tracking
+- Create agent definitions for specialized workflows including research-focused qidea workflow
+- Apply security enhancements preventing command injection and enforcing trusted domains
+- Provide enhanced post-setup experience with specific component listings and practical usage examples
 
 ### Development Setup (Contributors)
 ```bash
 git clone <repository>
 cd claude-code-quickstart
 npm install
-npm test              # Run all tests (226 tests: 144 passing + 82 meaningful TDD failures)
+npm test              # Run all tests (296 tests: 214 passing + 82 meaningful TDD failures)
 npm run lint          # ESLint checks (0 warnings)
 npm run format        # Prettier formatting
 ```
@@ -63,11 +65,12 @@ npm test -- test/unit/          # Run specific test category
 
 This CLI tool follows a template-driven architecture with MCP server integration and security-first design. The system consists of:
 
-1. **MCP Server Configuration** — Pre-configured servers for AI workflows with transport support (stdio, SSE)
-2. **Security Validation** — URL sanitization, command injection prevention, trusted domain enforcement
-3. **Project Scaffolding** — Templates following Progressive Documentation Guide
-4. **Agent System** — Specialized agents for TDD, planning, documentation, etc.
-5. **Requirements Management** — REQ-ID based tracking for TDD compliance
+1. **Smart MCP Server Configuration** — Production-ready servers with intelligent status detection, avoiding false failure messages during setup
+2. **Advanced Security Validation** — HTTPS enforcement, trusted domain allowlists, command injection prevention, shell metacharacter filtering
+3. **Enhanced User Experience** — Comprehensive post-setup guidance with specific component listings and practical usage examples
+4. **Project Scaffolding** — Templates following Progressive Documentation Guide with TDD methodology and comprehensive MCP server integration guidelines
+5. **Agent System** — Specialized agents for TDD, planning, documentation, security review, release management, and zero-code research workflows
+6. **Requirements Management** — REQ-ID based tracking for TDD compliance with requirements.lock pattern
 
 For detailed implementation guidelines, see [CLAUDE.md](./CLAUDE.md).
 
