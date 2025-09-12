@@ -1,0 +1,27 @@
+Domain: Security
+Purpose: URL validation and command injection prevention for MCP SSE servers
+
+Key Concepts:
+- validateSSEUrl(): HTTPS + trusted domain + metacharacter filtering
+- buildSSECommand(): Safe command construction using array form
+- Trusted Domain Allowlist: *.mcp.cloudflare.com, localhost only
+- Command Injection Prevention: Shell metacharacter filtering
+
+Important Files:
+- validateSSEUrl(): Core security validation function
+- buildSSECommand(): Safe command building with validation
+- REQ-400 test suite: Comprehensive security validation tests
+
+Common Tasks:
+- "Add new URL validation": Update validateSSEUrl() and add tests
+- "Review security changes": Check validation, array form, error messages
+- "Security testing": Run REQ-400 suite with malicious payloads
+
+Gotchas:
+- Always validate URLs before shell execution
+- Use array form for commands to prevent injection
+- Domain allowlist must be restrictive
+- Error messages should not expose internal paths
+- Test with realistic attack vectors
+
+Dependencies: bin/cli.js (security functions), cli-mcp.spec.js (validation tests)

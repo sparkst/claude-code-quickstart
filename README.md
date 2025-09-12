@@ -5,6 +5,7 @@ One-command CLI tool that sets up Claude Code with MCP servers, project scaffold
 
 ## Key Entry Points
 - `bin/cli.js` — Main CLI implementation and MCP server configuration
+- `security/` — Security validation, threat prevention, and URL sanitization
 - `templates/` — Project scaffolding templates (CLAUDE.md, README.md, settings)
 - `requirements/` — TDD requirements documentation with REQ IDs
 - `.claude/agents/` — Agent definitions for specialized workflows
@@ -23,8 +24,8 @@ claude-code-quickstart
 ```
 
 This will:
-- Set up MCP servers (Tavily, Brave Search, Context7, Supabase, GitHub, n8n)
-- Configure Claude Code settings with safe permissions
+- Set up MCP servers (Tavily, Brave Search, Context7, Supabase, GitHub, n8n, Cloudflare SSE)
+- Configure Claude Code settings with safe permissions and security validation
 - Scaffold project structure with TDD methodology
 - Create agent definitions for specialized workflows
 
@@ -33,7 +34,7 @@ This will:
 git clone <repository>
 cd claude-code-quickstart
 npm install
-npm test              # Run all tests (156 tests: 74 passing + 82 meaningful TDD failures)
+npm test              # Run all tests (226 tests: 144 passing + 82 meaningful TDD failures)
 npm run lint          # ESLint checks (0 warnings)
 npm run format        # Prettier formatting
 ```
@@ -60,12 +61,13 @@ npm test -- test/unit/          # Run specific test category
 
 ## Architecture Overview
 
-This CLI tool follows a template-driven architecture with MCP server integration. The system consists of:
+This CLI tool follows a template-driven architecture with MCP server integration and security-first design. The system consists of:
 
-1. **MCP Server Configuration** — Pre-configured servers for AI workflows
-2. **Project Scaffolding** — Templates following Progressive Documentation Guide
-3. **Agent System** — Specialized agents for TDD, planning, documentation, etc.
-4. **Requirements Management** — REQ-ID based tracking for TDD compliance
+1. **MCP Server Configuration** — Pre-configured servers for AI workflows with transport support (stdio, SSE)
+2. **Security Validation** — URL sanitization, command injection prevention, trusted domain enforcement
+3. **Project Scaffolding** — Templates following Progressive Documentation Guide
+4. **Agent System** — Specialized agents for TDD, planning, documentation, etc.
+5. **Requirements Management** — REQ-ID based tracking for TDD compliance
 
 For detailed implementation guidelines, see [CLAUDE.md](./CLAUDE.md).
 
@@ -73,8 +75,8 @@ For detailed implementation guidelines, see [CLAUDE.md](./CLAUDE.md).
 
 ```
 ├── bin/
-│   ├── cli.js                  # Main CLI implementation  
-│   ├── cli-mcp.spec.js        # MCP server tests
+│   ├── cli.js                  # Main CLI implementation with security validation
+│   ├── cli-mcp.spec.js        # MCP server tests (70 security tests)
 │   └── cli.integration.spec.js # Integration tests
 ├── .github/                    # CI/CD Pipeline Infrastructure
 │   ├── workflows/             # GitHub Actions workflows
@@ -111,6 +113,9 @@ For detailed implementation guidelines, see [CLAUDE.md](./CLAUDE.md).
 ├── requirements/              # Requirements with REQ IDs
 │   ├── current.md            # Active requirements
 │   └── requirements.lock.md  # Snapshot for current task
+├── security/                  # Security domain documentation
+│   ├── README.md             # Security patterns and threat model
+│   └── .claude-context       # Security domain context
 ├── .claude/
 │   ├── agents/               # Agent definitions
 │   └── settings.json         # Claude Code configuration

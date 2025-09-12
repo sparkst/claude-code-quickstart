@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.5] - 2025-09-12
+
+### Added
+- **Cloudflare SSE MCP Integration (REQ-300-305)**
+  - Complete SSE transport support for cloudflare-bindings and cloudflare-builds MCP servers
+  - SSE URL validation with HTTPS enforcement and trusted domain allowlist
+  - Extended CLI with `--transport sse` parameter support
+  - Comprehensive TDD test coverage with 70 additional tests in cli-mcp.spec.js
+
+### Security
+- **Critical Security Fixes (REQ-400-403)**
+  - **REQ-400**: Added `validateSSEUrl()` function preventing command injection, path traversal attacks
+  - **REQ-402**: Fixed misleading wrangler authentication guidance - clarified distinction between wrangler vs SSE servers
+  - **REQ-403**: Removed invalid REQ-303 comment references, established REQ-ID consistency validation
+  - HTTPS-only URL validation with trusted domain enforcement (*.mcp.cloudflare.com, localhost)
+  - Shell metacharacter injection prevention with clear error messaging
+
+### Enhanced
+- **Architecture & Performance Improvements (REQ-404-407)**
+  - **REQ-404**: Refactored `buildSSECommand()` for single responsibility principle
+  - **REQ-405**: Added proper module.exports for integration testing
+  - **REQ-406**: Optimized server lookup with `HAS_CLOUDFLARE_SSE_SERVERS` cached constant
+  - **REQ-407**: Reorganized SERVER_SPECS array by server type with clear sectioning
+
+### Fixed
+- SSE server routing in configureClaudeCode() switch statement
+- Post-setup guide rendering for SSE authentication instructions
+- Integration test coverage for actual SERVER_SPECS validation vs string matching
+
+### Documentation
+- Updated bin/README.md with SSE server patterns and security validation examples
+- Enhanced troubleshooting guide with SSE-specific debugging steps
+- Added security validation code examples and trusted domain documentation
+- Updated root README.md with Cloudflare SSE server inclusion
+
+### Technical
+- 70 new TDD-compliant tests: validateSSEUrl security, buildSSECommand architecture, SERVER_SPECS organization
+- Zero security vulnerabilities in URL handling and command generation
+- Performance optimized with O(1) server type lookups
+- REQ-ID traceability maintained across all code changes
+
 ## [1.0.4] - 2025-09-11
 
 ### Added
