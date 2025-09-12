@@ -476,6 +476,18 @@ async function promptStandardServerForCommand(spec, askFn) {
 
 // REQ-401: SSE Transport Architecture - Prompt function for Server-Sent Events servers
 async function promptSSEServerForCommand(spec, askFn) {
+  // REQ-500: Check server status before prompting to avoid false failures
+  const serverStatus = checkServerStatus(spec.key);
+
+  if (serverStatus.exists) {
+    console.log(`\n• ${spec.title} → ${spec.helpUrl}`);
+    console.log(`  ✅ Already configured`);
+    console.log(
+      `  ℹ️  Run /mcp ${spec.key} in Claude Code if authentication is needed`
+    );
+    return { action: "already_configured" };
+  }
+
   console.log(`\n• ${spec.title} → ${spec.helpUrl}`);
   console.log(
     `  ⚠️  Note: You'll need to authenticate in Claude Code using /mcp ${spec.key}`
@@ -576,6 +588,9 @@ async function configureClaudeCode() {
           // Server wasn't configured, that's fine
           console.log(`  ⚠️  ${spec.title} was not configured`);
         }
+      } else if (serverConfig && serverConfig.action === "already_configured") {
+        // REQ-500: Handle already configured servers from prompt functions
+        configuredServers.push(spec.title);
       } else {
         console.log(`  ⏭️  ${spec.title} skipped`);
         skippedServers.push(spec.title);
