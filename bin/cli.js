@@ -10,6 +10,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const os = require("node:os");
 const readline = require("node:readline");
+const { URL } = require("node:url");
 
 const HOME = os.homedir();
 const GLOBAL_DIR = path.join(HOME, ".claude");
@@ -81,6 +82,71 @@ function formatExistingValue(envVarName, value) {
   return shouldMaskEnvVar(envVarName) ? maskKey(value) : value;
 }
 
+// REQ-400: Security - URL Parameter Validation
+function validateSSEUrl(url) {
+  if (!url || typeof url !== "string") {
+    throw new Error("SSE URL must be a non-empty string");
+  }
+
+  // Only allow HTTPS URLs
+  if (!url.startsWith("https://")) {
+    throw new Error("SSE URLs must use HTTPS protocol");
+  }
+
+  try {
+    const urlObj = new URL(url);
+
+    // Check for trusted domains
+    const allowedDomains = [
+      "bindings.mcp.cloudflare.com",
+      "builds.mcp.cloudflare.com",
+      "localhost", // For development
+    ];
+
+    if (!allowedDomains.includes(urlObj.hostname)) {
+      throw new Error(
+        `Untrusted domain: ${urlObj.hostname}. Allowed domains: ${allowedDomains.join(", ")}`
+      );
+    }
+
+    // Check for shell metacharacters and injection attempts
+    const dangerousChars = /[;&|`$(){}[\]\\<>'"]/;
+    if (dangerousChars.test(url)) {
+      throw new Error("URL contains potentially dangerous characters");
+    }
+
+    // Check for path traversal attempts
+    if (url.includes("..") || url.includes("//")) {
+      throw new Error("URL contains path traversal or double slash patterns");
+    }
+
+    return urlObj.href; // Return normalized URL
+  } catch (error) {
+    if (error.message.startsWith("Invalid URL")) {
+      throw new Error(`Invalid URL format: ${url}`);
+    }
+    throw error;
+  }
+}
+
+// REQ-404: Extract SSE command building for single responsibility
+function buildSSECommand(spec, scope) {
+  const parts = ["claude", "mcp", "add"];
+
+  if (scope && scope !== "local") {
+    parts.push("--scope", scope);
+  }
+
+  // Validate URL for security before using it
+  const validatedUrl = validateSSEUrl(spec.url);
+
+  parts.push("--transport", "sse");
+  parts.push(spec.key);
+  parts.push(validatedUrl);
+
+  return parts.join(" ");
+}
+
 function buildClaudeMcpCommand(spec, scope, envVars, extraArgs = []) {
   const parts = ["claude", "mcp", "add"];
 
@@ -89,29 +155,37 @@ function buildClaudeMcpCommand(spec, scope, envVars, extraArgs = []) {
     parts.push("--scope", scope);
   }
 
-  // Add server name BEFORE environment variables
-  parts.push(spec.key);
+  // REQ-404: Handle SSE transport via dedicated function
+  if (spec.transport === "sse" && spec.url) {
+    return buildSSECommand(spec, scope);
+  } else {
+    // Original logic for npm-based servers
+    // Add server name BEFORE environment variables
+    parts.push(spec.key);
 
-  // Add environment variables AFTER server name
-  if (envVars && typeof envVars === "object") {
-    for (const [key, value] of Object.entries(envVars)) {
-      if (value) {
-        parts.push("--env", `${key}=${value}`);
+    // Add environment variables AFTER server name
+    if (envVars && typeof envVars === "object") {
+      for (const [key, value] of Object.entries(envVars)) {
+        if (value) {
+          parts.push("--env", `${key}=${value}`);
+        }
       }
     }
+
+    // Add separator
+    parts.push("--");
+
+    // Add command
+    parts.push(spec.command);
+
+    // Add args - handle function vs array
+    const args =
+      typeof spec.args === "function"
+        ? spec.args(...extraArgs)
+        : spec.args || [];
+
+    parts.push(...args);
   }
-
-  // Add separator
-  parts.push("--");
-
-  // Add command
-  parts.push(spec.command);
-
-  // Add args - handle function vs array
-  const args =
-    typeof spec.args === "function" ? spec.args(...extraArgs) : spec.args || [];
-
-  parts.push(...args);
 
   return parts.join(" ");
 }
@@ -140,7 +214,9 @@ function getExistingServerEnv(serverKey) {
   }
 }
 
+// REQ-407: Organize SERVER_SPECS by server type for better maintainability
 const SERVER_SPECS = [
+  // === NPM-based MCP servers with API keys ===
   {
     key: "context7",
     title: "Context7",
@@ -185,6 +261,17 @@ const SERVER_SPECS = [
     args: () => ["-y", "tavily-mcp"],
   },
   {
+    key: "postgres",
+    title: "PostgreSQL",
+    envVar: "POSTGRES_CONNECTION_STRING",
+    helpUrl:
+      "https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING",
+    command: "npx",
+    args: (val) => ["-y", "@modelcontextprotocol/server-postgres", val],
+  },
+
+  // === NPM-based MCP servers with dual environment variables ===
+  {
     key: "n8n",
     title: "n8n (Recommended)",
     envVar: "N8N_API_URL",
@@ -194,15 +281,8 @@ const SERVER_SPECS = [
     args: () => ["-y", "@leonardsellem/n8n-mcp-server"],
     recommended: true,
   },
-  {
-    key: "postgres",
-    title: "PostgreSQL",
-    envVar: "POSTGRES_CONNECTION_STRING",
-    helpUrl:
-      "https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING",
-    command: "npx",
-    args: (val) => ["-y", "@modelcontextprotocol/server-postgres", val],
-  },
+
+  // === Wrangler-based servers requiring special authentication ===
   {
     key: "cloudflare",
     title: "Cloudflare",
@@ -212,7 +292,31 @@ const SERVER_SPECS = [
     command: "npx",
     args: () => ["-y", "@cloudflare/mcp-server-cloudflare", "init"],
   },
+
+  // === SSE transport servers requiring Claude Code authentication ===
+  {
+    key: "cloudflare-bindings",
+    title: "Cloudflare Bindings",
+    promptType: "sse",
+    transport: "sse",
+    url: "https://bindings.mcp.cloudflare.com/sse",
+    helpUrl:
+      "https://developers.cloudflare.com/workers/configuration/bindings/",
+  },
+  {
+    key: "cloudflare-builds",
+    title: "Cloudflare Builds",
+    promptType: "sse",
+    transport: "sse",
+    url: "https://builds.mcp.cloudflare.com/sse",
+    helpUrl: "https://developers.cloudflare.com/workers/builds/",
+  },
 ];
+
+// REQ-406: Performance - Cache server type lookups to avoid O(n) searches
+const HAS_CLOUDFLARE_SSE_SERVERS = SERVER_SPECS.some(
+  (spec) => spec.transport === "sse" && spec.key.startsWith("cloudflare")
+);
 
 // Command-focused prompt functions that return configuration objects
 async function promptPathServerForCommand(spec, askFn) {
@@ -342,6 +446,35 @@ async function promptStandardServerForCommand(spec, askFn) {
   };
 }
 
+// REQ-401: SSE Transport Architecture - Prompt function for Server-Sent Events servers
+async function promptSSEServerForCommand(spec, askFn) {
+  console.log(`\n• ${spec.title} → ${spec.helpUrl}`);
+  console.log(
+    `  ⚠️  Note: You'll need to authenticate in Claude Code using /mcp ${spec.key}`
+  );
+  console.log(
+    `  ⚠️  Note: SSE-based MCP servers require authentication via Claude Code, not wrangler login`
+  );
+
+  const choice = await askFn(
+    `Configure ${spec.title}? (y)es, (n)o, (-) disable`,
+    "y"
+  );
+
+  if (choice === "-") {
+    return { action: "disable" };
+  }
+  if (choice === "n" || choice === "no") {
+    return { action: "skip" };
+  }
+
+  return {
+    action: "configure",
+    envVars: {}, // SSE servers don't need env vars in CLI
+    spec,
+  };
+}
+
 async function configureClaudeCode() {
   const { execSync } = require("node:child_process");
 
@@ -369,6 +502,8 @@ async function configureClaudeCode() {
         serverConfig = await promptPathServerForCommand(spec, ask);
       } else if (spec.promptType === "wrangler") {
         serverConfig = await promptWranglerServerForCommand(spec, ask);
+      } else if (spec.promptType === "sse") {
+        serverConfig = await promptSSEServerForCommand(spec, ask);
       } else if (spec.envVar2) {
         serverConfig = await promptDualEnvServerForCommand(spec, ask);
       } else {
@@ -644,6 +779,21 @@ function showPostSetupGuide() {
   console.log("\n📚 CONFIGURED MCP SERVERS:");
   console.log("  • Check your MCP servers with: claude mcp list");
   console.log("  • Test them with /mcp command in Claude Code");
+
+  // REQ-406: Use cached constant instead of O(n) search
+  if (HAS_CLOUDFLARE_SSE_SERVERS) {
+    console.log("\n🔐 CLOUDFLARE SSE AUTHENTICATION:");
+    console.log(
+      "  ⚠️  IMPORTANT: For Cloudflare servers, you must authenticate in Claude Code:"
+    );
+    console.log("  • Open Claude Code");
+    console.log("  • Run: /mcp cloudflare-bindings (if configured)");
+    console.log("  • Run: /mcp cloudflare-builds (if configured)");
+    console.log("  • Follow the authentication prompts");
+    console.log(
+      "  ⚠️  Note: 'npx wrangler login' does NOT work with MCP servers"
+    );
+  }
 
   console.log("\n💡 PRO TIPS:");
   console.log("  • Use qnew, qplan, qcode shortcuts for faster development");
@@ -1164,3 +1314,13 @@ main().catch((err) => {
   console.error("Error:", err?.message || err);
   process.exit(1);
 });
+
+// REQ-405: Export functions for integration testing
+module.exports = {
+  SERVER_SPECS,
+  validateSSEUrl,
+  buildSSECommand,
+  buildClaudeMcpCommand,
+  promptSSEServerForCommand,
+  HAS_CLOUDFLARE_SSE_SERVERS,
+};

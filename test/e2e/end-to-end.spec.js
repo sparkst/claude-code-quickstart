@@ -14,11 +14,12 @@ import {
   MACOS_PATHS
 } from "../utils/test-constants.js";
 
-// Import minimal E2E utilities (will throw with TODO messages)
+// Import E2E utilities
 import {
   executeCompleteWorkflow,
-  testComponentIntegration,
-  validateUserExperience,
+  verifySystemIntegration,
+  simulateUserInteraction,
+  testWorkflowScenarios,
   testMcpServerSetupWorkflow,
   testHelpWorkflows,
   testErrorRecovery,
@@ -33,6 +34,10 @@ describe("REQ-004 — Multi-Layered Testing Architecture - E2E Layer", () => {
   beforeEach(async () => {
     e2eEnv = {
       projectDir: path.join(MACOS_PATHS.HOME_DIR, 'test-project'),
+      homeDir: MACOS_PATHS.HOME_DIR,
+      tempDirs: [],
+      testFiles: [],
+      processes: [],
       cleanup: () => Promise.resolve()
     };
   });
@@ -62,9 +67,10 @@ describe("REQ-004 — Multi-Layered Testing Architecture - E2E Layer", () => {
       expect(workflowResult.completedSteps).toBe(EXPECTED_STEPS);
       expect(workflowResult.duration).toBeLessThan(MAX_DURATION_MS);
       
-      // Verify end-to-end state
-      expect(fs.existsSync(path.join(e2eEnv.homeDir, ".claude"))).toBe(true);
-      expect(fs.existsSync(path.join(e2eEnv.homeDir, ".claude", "claude_desktop_config.json"))).toBe(true);
+      // Verify end-to-end state - check in workflow environment instead of homeDir
+      expect(workflowResult.environment).toBeDefined();
+      expect(fs.existsSync(path.join(workflowResult.environment, ".claude"))).toBe(true);
+      expect(fs.existsSync(path.join(workflowResult.environment, ".claude", "claude_desktop_config.json"))).toBe(true);
     });
 
     test("REQ-004 — MCP server installation and configuration workflow", async () => {
@@ -82,7 +88,7 @@ describe("REQ-004 — Multi-Layered Testing Architecture - E2E Layer", () => {
       expect(mcpWorkflow.success).toBe(true);
       
       const config = JSON.parse(fs.readFileSync(
-        path.join(e2eEnv.homeDir, ".claude", "claude_desktop_config.json"), 
+        path.join(mcpWorkflow.environment, ".claude", "claude_desktop_config.json"), 
         "utf8"
       ));
       

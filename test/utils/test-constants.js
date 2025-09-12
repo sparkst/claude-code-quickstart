@@ -35,7 +35,7 @@ export const TEST_PREFIX = 'claude-test';
 
 // macOS-specific paths and behaviors
 export const MACOS_PATHS = {
-  HOME_DIR: '/Users/test-user',
+  HOME_DIR: process.env.HOME || '/tmp/test-home', // Use actual home or temp dir
   CLAUDE_CONFIG_DIR: '.claude',
   TEMP_DIR_PREFIX: 'claude-test',
   GLOBAL_NODE_MODULES: '/usr/local/lib/node_modules'
