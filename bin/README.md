@@ -1,7 +1,7 @@
 # CLI Implementation
 
 ## Purpose
-Production-ready CLI implementation that orchestrates MCP server configuration, project scaffolding, and Claude Code setup. Features smart server detection to avoid false failure messages, enhanced post-setup experience with specific component listings, and comprehensive MCP integration guidelines for zero-code research workflows.
+Production-ready CLI implementation that orchestrates MCP server configuration, project scaffolding, and Claude Code setup. Features smart server detection to avoid false failure messages, enhanced post-setup experience with specific component listings, comprehensive MCP integration guidelines for zero-code research workflows, and robust security validation with real subprocess execution for testing.
 
 ## Boundaries
 **In Scope:**
@@ -10,11 +10,13 @@ Production-ready CLI implementation that orchestrates MCP server configuration, 
 - Interactive user prompts for API keys and settings with masked re-entry support
 - Template processing and file scaffolding with TDD methodology and comprehensive MCP integration guidelines
 - Template synchronization ensuring new installations get latest CLAUDE.md with qidea shortcut and MCP guidance
-- Advanced environment validation and security enforcement
+- Advanced environment validation and security enforcement with comprehensive threat prevention
 - Agent registration with Claude Code including zero-code research workflow (qidea)
-- Comprehensive SSE URL validation and command injection prevention
+- **Security Validation (REQ-502)** — Command injection prevention, path traversal protection, domain validation
+- **CLI Integration (REQ-501)** — Real subprocess execution, SSE transport support, MCP command building
+- **Test Infrastructure (REQ-500, REQ-503)** — TypeScript utilities, real process execution, environment management
 - Server conflict resolution (fixed "MCP server cloudflare already exists" errors)
-- URL validation false positive fixes for legitimate https:// URLs
+- URL validation with comprehensive security checks for legitimate https:// URLs
 
 **Out of Scope:**
 - Actual MCP server implementations (delegates to external packages)
@@ -22,10 +24,14 @@ Production-ready CLI implementation that orchestrates MCP server configuration, 
 - Network operations beyond basic validation
 
 ## Key Files
-- `cli.js` — Main entry point with smart server detection, enhanced post-setup guidance, and MCP server specs
-- `cli-mcp.spec.js` — Unit tests for MCP server configurations and utilities including smart detection tests
-- `cli.integration.spec.js` — End-to-end tests for scaffolding and setup flows
+- `cli.js` — Main entry point with smart server detection, enhanced post-setup guidance, MCP server specs, and security validation
+- `cli-mcp.spec.js` — Unit tests for MCP server configurations and utilities including smart detection tests (70+ security tests)
+- `cli.integration.spec.js` — End-to-end tests for scaffolding and setup flows using real subprocess execution
 - `postinstall.js` — Post-installation hooks and setup verification
+- **New Test Infrastructure (REQ-500-503):**
+  - `../test/utils/cli-executor.ts` — Real CLI subprocess execution and monitoring
+  - `../test/utils/test-environment.ts` — Environment management with proper cleanup
+  - `../test/utils/e2e-types.ts` — Comprehensive TypeScript interfaces for testing
 
 ## Patterns
 
@@ -56,29 +62,51 @@ Production-ready CLI implementation that orchestrates MCP server configuration, 
 - Replace placeholders with actual values during scaffolding
 - Maintain file permissions and directory structure
 
-### Security Validation
+### Security Validation (REQ-502)
 ```javascript
-// URL validation for SSE servers
-function validateSSEUrl(url) {
+// Enhanced URL validation for SSE servers with test compatibility
+function validateSSEUrl(url, options = {}) {
+  const { testMode = false } = options;
+
   if (!url || typeof url !== 'string') {
     throw new Error('URL is required and must be a string');
   }
-  
-  // HTTPS only
+
+  // HTTPS only (enhanced for production)
   if (!url.startsWith('https://')) {
     throw new Error('SSE URLs must use HTTPS protocol');
   }
-  
-  // Trusted domains only
+
+  // Command injection prevention - shell metacharacters
+  const dangerousChars = /[;&|`$(){}[\]<>'"\\]/;
+  if (dangerousChars.test(url)) {
+    throw new Error('SSE URL contains potentially dangerous characters');
+  }
+
+  // Path traversal protection
+  if (url.includes('../') || url.includes('..\\')) {
+    throw new Error('Path traversal not allowed in SSE URLs');
+  }
+
+  // Trusted domains with comprehensive validation
   const allowedDomains = ['.mcp.cloudflare.com', 'localhost'];
-  const isAllowed = allowedDomains.some(domain => 
+  const isAllowed = allowedDomains.some(domain =>
     url.includes(domain)
   );
-  if (!isAllowed) {
-    throw new Error('SSE URL must be from trusted domain');
+
+  if (!isAllowed && !testMode) {
+    throw new Error('SSE URL must be from trusted domain (.mcp.cloudflare.com or localhost)');
   }
-  
+
   return url;
+}
+
+// Command array building for injection safety (REQ-501)
+function buildClaudeMcpCommand(spec) {
+  if (spec.transport === 'sse') {
+    return ['claude', 'mcp', 'add', spec.key, '--transport', 'sse', '--url', spec.sseUrl];
+  }
+  // Standard command building...
 }
 ```
 
@@ -187,6 +215,10 @@ The `showPostSetupGuide()` provides comprehensive guidance:
 8. **v1.0.7**: If seeing "❌ Failed" for existing servers, ensure `checkServerStatus()` is called before prompts
 9. **v1.0.7**: Look for "already_configured" action in server configuration logs
 10. **v1.0.7**: Verify SSE servers show "✅ already configured" status instead of false failures
+11. **v1.0.9**: For test failures, check if using real subprocess execution vs simulation
+12. **v1.0.9**: Validate TypeScript compilation if using .ts test utilities
+13. **v1.0.9**: Ensure security validation functions exist and are properly exported
+14. **v1.0.9**: Check for proper resource cleanup in test environments to prevent test pollution
 
 ## Template Management
 

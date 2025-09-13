@@ -43,24 +43,38 @@ npm run format        # Prettier formatting
 ```
 
 #### Testing Infrastructure
-The project follows strict TDD methodology with a multi-layered testing architecture:
+The project follows strict TDD methodology with a multi-layered testing architecture designed for production-grade reliability:
 
-- **Unit Tests** — Individual function testing with parameterized constants
-- **Integration Tests** — Real environment MCP server integration  
-- **E2E Tests** — Full CLI workflow validation
-- **Performance Tests** — <500ms CLI responsiveness validation
-- **macOS Error Boundary Tests** — Platform-specific error handling
+- **Unit Tests** — Individual function testing with parameterized constants and zero hardcoded literals
+- **Security Tests** — Comprehensive validation preventing command injection, path traversal, and buffer overflow (70+ tests)
+- **Integration Tests** — Real environment MCP server integration with actual subprocess execution
+- **E2E Tests** — Full CLI workflow validation using real process execution (no simulation)
+- **Performance Tests** — <500ms CLI responsiveness validation with proper benchmarking
+- **macOS Error Boundary Tests** — Platform-specific error handling for permissions and Gatekeeper
 
-Test utilities are designed to support TDD flow with meaningful failures that guide implementation:
+**TypeScript Test Architecture (v1.0.9):**
 ```bash
-# Test constants (parameterized to avoid hardcoded literals)
-test/utils/test-constants.js
+# Modular TypeScript test utilities (REQ-500-503)
+test/utils/cli-executor.ts         # Real CLI subprocess execution
+test/utils/test-environment.ts     # Environment management and cleanup
+test/utils/workflow-validator.ts   # Workflow validation and monitoring
+test/utils/e2e-types.ts           # Comprehensive TypeScript interfaces
+test/utils/security-validator.ts   # Security validation and injection prevention
 
 # Test execution and debugging
-npm test -- --verbose           # Detailed test output
-npm test -- --watch             # Watch mode for TDD
+npm test -- --verbose           # Detailed test output with real process execution
+npm test -- --watch             # Watch mode for TDD with TypeScript compilation
 npm test -- test/unit/          # Run specific test category
+npm test -- test/security/      # Run security validation tests
+npm test -- test/utils/         # Run infrastructure tests
 ```
+
+**Key Testing Improvements:**
+- **Real Execution** — All tests use actual subprocess execution via `child_process.spawn` (no simulation)
+- **TypeScript Migration** — Modular architecture replacing 1000+ line JavaScript monolith
+- **Security Focus** — Command injection prevention, domain validation, and input sanitization
+- **Resource Management** — Proper cleanup and error handling preventing test pollution
+- **TDD Compliance** — Meaningful failures that guide implementation with REQ-ID traceability
 
 ## Architecture Overview
 
@@ -95,20 +109,30 @@ For detailed implementation guidelines, see [CLAUDE.md](./CLAUDE.md).
 ├── .githooks/                  # Git hooks for local validation
 │   ├── pre-commit            # Format, lint, test, secret scan
 │   └── pre-push              # Full validation suite
-├── test/                       # TDD-compliant test infrastructure
-│   ├── utils/                 # Test utilities with parameterized constants
+├── test/                       # Production-grade TDD test infrastructure (v1.0.9)
+│   ├── utils/                 # TypeScript test utilities with real execution
 │   │   ├── test-constants.js  # Parameterized values (no hardcoded literals)
-│   │   ├── test-helpers.js    # Basic test utilities
+│   │   ├── cli-executor.ts    # Real CLI subprocess execution (REQ-503)
+│   │   ├── cli-executor.js    # JavaScript compatibility layer
+│   │   ├── test-environment.ts # Environment management and cleanup (REQ-500)
+│   │   ├── test-environment.js # JavaScript compatibility layer
+│   │   ├── workflow-validator.spec.ts # Workflow validation testing
+│   │   ├── e2e-types.ts       # Comprehensive TypeScript interfaces (REQ-500)
+│   │   ├── security-validation-missing.spec.ts # Security validation tests (REQ-502)
+│   │   ├── real-process-execution.spec.ts # Real execution testing (REQ-503)
+│   │   ├── cli-mcp-integration.spec.ts # CLI MCP integration tests (REQ-501)
+│   │   ├── cli-executor-factory.spec.ts # Factory pattern testing
+│   │   ├── test-environment.spec.ts # Environment testing
 │   │   ├── github-actions-helpers.js # CI/CD workflow testing utilities
 │   │   ├── performance-helpers.js # Performance measurement utilities
 │   │   ├── error-simulation-helpers.js # Error testing utilities
-│   │   ├── real-environment-helpers.js # Environment testing
-│   │   └── e2e-helpers.js     # End-to-end test utilities
+│   │   └── real-environment-helpers.js # Environment testing
 │   ├── ci-cd/                 # CI/CD pipeline tests
 │   │   └── github-actions.spec.js # Comprehensive workflow validation
-│   ├── integration/           # Real environment testing
-│   ├── e2e/                  # End-to-end workflow tests
+│   ├── integration/           # Real environment testing with subprocess execution
+│   ├── e2e/                  # End-to-end workflow tests (real CLI execution)
 │   ├── performance/          # <500ms responsiveness tests
+│   ├── security/             # Comprehensive security validation (70+ tests)
 │   └── error-boundaries/     # macOS-specific error handling tests
 ├── templates/                 # Project scaffolding templates (synchronized with root)
 │   ├── CLAUDE.md             # TDD methodology template with all QShortcuts and MCP guidance
