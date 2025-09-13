@@ -314,10 +314,43 @@ export async function validateCommandExists(command: string): Promise<boolean> {
  */
 export function getCliPath(): string {
   const cliPath = path.resolve('./bin/cli.js');
-  
+
   if (!validatePath(cliPath)) {
     throw new Error('CLI path validation failed') as E2EError;
   }
-  
+
   return cliPath;
+}
+
+/**
+ * CLI Executor interface for test compatibility
+ * REQ-500: Missing function implementation
+ */
+export interface CliExecutor {
+  execute(args: readonly string[], options?: {
+    readonly cwd?: string;
+    readonly env?: Record<string, string>;
+    readonly input?: string;
+    readonly timeout?: number;
+  }): Promise<CommandResult>;
+  cleanup(): Promise<void>;
+}
+
+/**
+ * Creates a CLI executor instance for testing
+ * REQ-500: Missing createCliExecutor function
+ */
+export async function createCliExecutor(): Promise<CliExecutor> {
+  return {
+    async execute(args: readonly string[], options = {}): Promise<CommandResult> {
+      const cliPath = getCliPath();
+      return executeCliCommand('node', [cliPath, ...args], options);
+    },
+
+    async cleanup(): Promise<void> {
+      // Clean up any temporary resources
+      // Currently no cleanup needed for the simple executor
+      return Promise.resolve();
+    }
+  };
 }

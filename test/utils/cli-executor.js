@@ -263,3 +263,22 @@ export function getCliPath() {
     }
     return cliPath;
 }
+
+/**
+ * Creates a CLI executor instance for testing
+ * REQ-500: Missing createCliExecutor function
+ */
+export async function createCliExecutor() {
+    return {
+        async execute(args, options = {}) {
+            const cliPath = getCliPath();
+            return executeCliCommand('node', [cliPath, ...args], options);
+        },
+
+        async cleanup() {
+            // Clean up any temporary resources
+            // Currently no cleanup needed for the simple executor
+            return Promise.resolve();
+        }
+    };
+}

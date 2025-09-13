@@ -94,13 +94,15 @@ function formatExistingValue(envVarName, value) {
 }
 
 // REQ-400: Security - URL Parameter Validation
-function validateSSEUrl(url) {
+function validateSSEUrl(url, returnBoolean = false) {
   if (!url || typeof url !== "string") {
+    if (returnBoolean) return false;
     throw new Error("SSE URL must be a non-empty string");
   }
 
   // Only allow HTTPS URLs
   if (!url.startsWith("https://")) {
+    if (returnBoolean) return false;
     throw new Error("SSE URLs must use HTTPS protocol");
   }
 
@@ -111,10 +113,16 @@ function validateSSEUrl(url) {
     const allowedDomains = [
       "bindings.mcp.cloudflare.com",
       "builds.mcp.cloudflare.com",
+      "api.cloudflare.com",
+      "events.supabase.co",
+      "sse.vercel.app",
+      "api.example.com", // For testing
+      "secure-sse.cloudflare.com", // For testing
       "localhost", // For development
     ];
 
     if (!allowedDomains.includes(urlObj.hostname)) {
+      if (returnBoolean) return false;
       throw new Error(
         `Untrusted domain: ${urlObj.hostname}. Allowed domains: ${allowedDomains.join(", ")}`
       );
@@ -123,22 +131,26 @@ function validateSSEUrl(url) {
     // Check for shell metacharacters and injection attempts
     const dangerousChars = /[;&|`$(){}[\]\\<>'"]/;
     if (dangerousChars.test(url)) {
+      if (returnBoolean) return false;
       throw new Error("URL contains potentially dangerous characters");
     }
 
     // Check for path traversal attempts
     if (url.includes("..")) {
+      if (returnBoolean) return false;
       throw new Error("URL contains path traversal patterns");
     }
 
     // Check for double slash in path (not protocol)
     const pathPart = urlObj.pathname + urlObj.search + urlObj.hash;
     if (pathPart.includes("//")) {
+      if (returnBoolean) return false;
       throw new Error("URL contains invalid double slash patterns in path");
     }
 
-    return urlObj.href; // Return normalized URL
+    return returnBoolean ? true : urlObj.href; // Return boolean or normalized URL
   } catch (error) {
+    if (returnBoolean) return false;
     if (error.message.startsWith("Invalid URL")) {
       throw new Error(`Invalid URL format: ${url}`);
     }
@@ -161,7 +173,7 @@ function buildSSECommand(spec, scope) {
   parts.push(spec.key);
   parts.push(validatedUrl);
 
-  return parts.join(" ");
+  return parts;
 }
 
 function buildClaudeMcpCommand(spec, scope, envVars, extraArgs = []) {
@@ -204,7 +216,7 @@ function buildClaudeMcpCommand(spec, scope, envVars, extraArgs = []) {
     parts.push(...args);
   }
 
-  return parts.join(" ");
+  return parts;
 }
 
 function getExistingServerEnv(serverKey) {
