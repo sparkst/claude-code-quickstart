@@ -5,6 +5,65 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.8] - 2025-09-12
+
+### Fixed
+- **Template Synchronization (REQ-700-703)**
+  - Fixed template deployment issue where new installations weren't getting updated CLAUDE.md content
+  - Synchronized `templates/CLAUDE.md` with root version containing qidea shortcut and MCP server integration guidelines
+  - New installations now receive complete CLAUDE.md with all QShortcuts and comprehensive MCP guidance
+  - Maintained backward compatibility - existing projects remain unchanged via `fs.existsSync()` protection
+
+### Enhanced
+- **New Installation Experience**
+  - New users get qidea shortcut for zero-code research workflow immediately
+  - Complete MCP server integration guidelines available from project creation
+  - Full QShortcuts documentation including research-focused qidea workflow
+  - Comprehensive agent guidance and workflow integration patterns
+
+### Documentation
+- **Template Management**
+  - Added Template Management section to `bin/README.md` with sync process documentation
+  - Documented template synchronization workflow for maintainers
+  - Clear guidance on when templates need updates and how to test deployment
+  - Established maintainer checklist for template updates
+
+### Technical
+- Simple file copy solution leveraging existing scaffolding system
+- Zero breaking changes - template system architecture unchanged
+- Backward compatibility ensured through existing `scaffoldProjectFiles()` protection
+- Template deployment validated in clean installation environment
+
+## [1.0.7] - 2025-09-12
+
+### Fixed
+- **Smart SSE Server Detection (REQ-500)**
+  - Fixed Cloudflare SSE server detection showing "❌ Failed" for already configured servers
+  - Enhanced `promptSSEServerForCommand()` with pre-check via `checkServerStatus()` at lines 479-486
+  - Added "already_configured" action handling in main configuration loop at lines 589-591
+  - SSE servers now show "✅ already configured" status with clear authentication guidance
+  - Eliminates false failure messages during setup when SSE servers are properly configured
+
+### Maintenance
+- **Repository Cleanup**
+  - Removed backup documentation files (CLAUDE.md.backup.*, README.md.backup.*)
+  - Cleaned up obsolete files (CLAUDE copy.md, customer-setup-email.md)
+  - Removed old package versions (*.tgz files)
+  - Streamlined repository structure for better maintainability
+
+### Enhanced
+- **User Experience Improvements**
+  - SSE server configuration now provides accurate status detection
+  - Clear guidance for existing configurations: "Run /mcp [server-key] if authentication is needed"
+  - Improved status messaging prevents user confusion during setup
+  - Smart detection works for all server types including Cloudflare SSE transport
+
+### Technical
+- Enhanced `checkServerStatus()` integration across all server prompt functions
+- Consistent "already_configured" action flow for all server types
+- Zero false positives in server detection for SSE transport configurations
+- Improved UX messaging aligns with existing server status patterns
+
 ## [1.0.6] - 2025-09-12
 
 ### Added

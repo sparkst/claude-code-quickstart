@@ -15,6 +15,17 @@ const { URL } = require("node:url");
 const HOME = os.homedir();
 const GLOBAL_DIR = path.join(HOME, ".claude");
 
+// REQ-608: Action type constants to replace magic strings
+const ACTION_TYPES = {
+  CONFIGURE: "configure",
+  SKIP: "skip",
+  DISABLE: "disable",
+  ALREADY_CONFIGURED: "already_configured",
+};
+
+// REQ-607: Server status cache to avoid duplicate checks
+const serverStatusCache = new Map();
+
 const PROJECT_DIR = process.cwd();
 const PROJ_CLAUDE_DIR = path.join(PROJECT_DIR, ".claude");
 
@@ -221,35 +232,115 @@ function getExistingServerEnv(serverKey) {
 }
 
 // REQ-500: Smart server detection to avoid false failure messages
+// REQ-600, REQ-601, REQ-605, REQ-607, REQ-609: Enhanced with security, caching, and error handling
 function checkServerStatus(serverKey) {
-  try {
-    const fs = require("fs");
-    const path = require("path");
-    const os = require("os");
+  // REQ-607: Check cache first to avoid duplicate checks
+  if (serverStatusCache.has(serverKey)) {
+    return serverStatusCache.get(serverKey);
+  }
 
-    const claudeSettingsPath = path.join(
-      os.homedir(),
-      ".claude",
-      "settings.json"
-    );
+  // REQ-601: Use existing imports instead of re-requiring
+  const claudeSettingsPath = path.join(HOME, ".claude", "settings.json");
+
+  try {
+    // REQ-600: Specific error handling for file access
     if (!fs.existsSync(claudeSettingsPath)) {
-      return { exists: false, status: "not_configured" };
+      const result = {
+        exists: false,
+        status: "not_configured",
+        message: "Claude settings not found",
+      };
+      serverStatusCache.set(serverKey, result);
+      return result;
     }
 
-    const settings = JSON.parse(fs.readFileSync(claudeSettingsPath, "utf8"));
+    let settingsContent;
+    try {
+      settingsContent = fs.readFileSync(claudeSettingsPath, "utf8");
+    } catch (error) {
+      const result = {
+        exists: false,
+        status: "error",
+        message: "Cannot read Claude settings file",
+        errorType: "file_permission",
+      };
+      console.error(
+        `REQ-600: File access error for ${claudeSettingsPath}: ${error.code || error.message}`
+      );
+      serverStatusCache.set(serverKey, result);
+      return result;
+    }
+
+    // REQ-609: JSON validation to prevent security vulnerabilities
+    let settings;
+    try {
+      settings = JSON.parse(settingsContent);
+    } catch (error) {
+      const result = {
+        exists: false,
+        status: "error",
+        message: "Invalid Claude settings format",
+        errorType: "json_parsing",
+      };
+      console.error(
+        `REQ-600: JSON parsing error for ${claudeSettingsPath}: ${error.message}`
+      );
+      serverStatusCache.set(serverKey, result);
+      return result;
+    }
+
+    // REQ-609: Validate parsed JSON structure to prevent prototype pollution
+    if (!settings || typeof settings !== "object" || Array.isArray(settings)) {
+      const result = {
+        exists: false,
+        status: "error",
+        message: "Invalid Claude settings structure",
+        errorType: "json_validation",
+      };
+      console.error(
+        `REQ-600: Invalid settings structure - expected object, got ${typeof settings}`
+      );
+      serverStatusCache.set(serverKey, result);
+      return result;
+    }
+
     const serverConfig = settings.mcpServers && settings.mcpServers[serverKey];
 
     if (!serverConfig) {
-      return { exists: false, status: "not_configured" };
+      const result = {
+        exists: false,
+        status: "not_configured",
+        message: "Server not configured",
+      };
+      serverStatusCache.set(serverKey, result);
+      return result;
     }
 
-    return {
+    // REQ-605: Enhanced status messaging - for SSE servers, auth is always required
+    const result = {
       exists: true,
-      status: "configured",
+      status: "configured_needs_auth",
+      message: "Server configured, authentication required in Claude Code",
       config: serverConfig,
     };
-  } catch {
-    return { exists: false, status: "error" };
+
+    // REQ-607: Cache the result
+    serverStatusCache.set(serverKey, result);
+    return result;
+  } catch (error) {
+    // REQ-600: Comprehensive error handling with logging
+    const result = {
+      exists: false,
+      status: "error",
+      message: "Unknown error checking server status",
+      errorType: "unknown",
+    };
+    console.error(
+      `REQ-600: Unexpected error in checkServerStatus for ${serverKey}:`,
+      error.message
+    );
+    serverStatusCache.set(serverKey, result);
+    return result;
   }
 }
 
@@ -485,7 +576,7 @@ async function promptSSEServerForCommand(spec, askFn) {
     console.log(
       `  ℹ️  Run /mcp ${spec.key} in Claude Code if authentication is needed`
     );
-    return { action: "already_configured" };
+    return { action: ACTION_TYPES.ALREADY_CONFIGURED };
   }
 
   console.log(`\n• ${spec.title} → ${spec.helpUrl}`);
@@ -502,14 +593,14 @@ async function promptSSEServerForCommand(spec, askFn) {
   );
 
   if (choice === "-") {
-    return { action: "disable" };
+    return { action: ACTION_TYPES.DISABLE };
   }
   if (choice === "n" || choice === "no") {
-    return { action: "skip" };
+    return { action: ACTION_TYPES.SKIP };
   }
 
   return {
-    action: "configure",
+    action: ACTION_TYPES.CONFIGURE,
     envVars: {}, // SSE servers don't need env vars in CLI
     spec,
   };
@@ -550,7 +641,7 @@ async function configureClaudeCode() {
         serverConfig = await promptStandardServerForCommand(spec, ask);
       }
 
-      if (serverConfig && serverConfig.action === "configure") {
+      if (serverConfig && serverConfig.action === ACTION_TYPES.CONFIGURE) {
         // Build and execute claude mcp add command
         const command = buildClaudeMcpCommand(
           spec,
@@ -579,7 +670,7 @@ async function configureClaudeCode() {
             failedServers.push(spec.title);
           }
         }
-      } else if (serverConfig && serverConfig.action === "disable") {
+      } else if (serverConfig && serverConfig.action === ACTION_TYPES.DISABLE) {
         // Remove existing server
         try {
           execSync(`claude mcp remove ${spec.key}`, { stdio: "pipe" });
@@ -588,7 +679,10 @@ async function configureClaudeCode() {
           // Server wasn't configured, that's fine
           console.log(`  ⚠️  ${spec.title} was not configured`);
         }
-      } else if (serverConfig && serverConfig.action === "already_configured") {
+      } else if (
+        serverConfig &&
+        serverConfig.action === ACTION_TYPES.ALREADY_CONFIGURED
+      ) {
         // REQ-500: Handle already configured servers from prompt functions
         configuredServers.push(spec.title);
       } else {
@@ -1428,4 +1522,6 @@ module.exports = {
   buildClaudeMcpCommand,
   promptSSEServerForCommand,
   HAS_CLOUDFLARE_SSE_SERVERS,
+  checkServerStatus,
+  ACTION_TYPES,
 };

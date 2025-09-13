@@ -9,6 +9,7 @@ Production-ready CLI implementation that orchestrates MCP server configuration, 
 - Enhanced post-setup experience with `showPostSetupGuide()` providing specific component listings and practical examples
 - Interactive user prompts for API keys and settings with masked re-entry support
 - Template processing and file scaffolding with TDD methodology and comprehensive MCP integration guidelines
+- Template synchronization ensuring new installations get latest CLAUDE.md with qidea shortcut and MCP guidance
 - Advanced environment validation and security enforcement
 - Agent registration with Claude Code including zero-code research workflow (qidea)
 - Comprehensive SSE URL validation and command injection prevention
@@ -105,8 +106,23 @@ try {
 ## Common Operations
 
 ### Smart Server Detection Usage
-The `checkServerStatus()` function provides intelligent server detection:
+The `checkServerStatus()` function provides intelligent server detection across all server types:
 ```javascript
+// REQ-500: Enhanced SSE server detection (v1.0.7)
+async function promptSSEServerForCommand(spec, askFn) {
+  // Check server status BEFORE prompting to avoid false failures
+  const serverStatus = checkServerStatus(spec.key);
+
+  if (serverStatus.exists) {
+    console.log(`✅ ${spec.title} already configured`);
+    console.log(`ℹ️  Run /mcp ${spec.key} in Claude Code if authentication is needed`);
+    return { action: "already_configured" };
+  }
+  
+  // Proceed with SSE server setup...
+}
+
+// Standard server detection pattern
 const serverStatus = checkServerStatus(spec.key);
 if (serverStatus.exists) {
   console.log(`✅ ${spec.title} already configured`);
@@ -115,6 +131,24 @@ if (serverStatus.exists) {
   // Proceed with installation
 }
 ```
+
+### Already Configured Action Handling
+The main configuration loop handles pre-configured servers gracefully:
+```javascript
+// REQ-500: Handle already configured servers (v1.0.7)
+} else if (serverConfig && serverConfig.action === "already_configured") {
+  // Handle already configured servers from prompt functions
+  configuredServers.push(spec.title);
+} else {
+  // Handle other server configurations...
+}
+```
+
+This pattern ensures that:
+- No duplicate configuration attempts are made
+- Users receive clear status feedback
+- Already configured servers are tracked in the final setup summary
+- False failure messages are eliminated for all server types
 
 ### Enhanced Post-Setup Experience
 The `showPostSetupGuide()` provides comprehensive guidance:
@@ -150,3 +184,55 @@ The `showPostSetupGuide()` provides comprehensive guidance:
 5. For SSE servers: validate URL format and domain allowlist
 6. Check Claude Code settings in `~/.claude/settings.json`
 7. Verify command injection protection is not blocking legitimate URLs
+8. **v1.0.7**: If seeing "❌ Failed" for existing servers, ensure `checkServerStatus()` is called before prompts
+9. **v1.0.7**: Look for "already_configured" action in server configuration logs
+10. **v1.0.7**: Verify SSE servers show "✅ already configured" status instead of false failures
+
+## Template Management
+
+### Template Synchronization Process
+**Purpose**: Ensure new installations receive the latest CLAUDE.md with qidea shortcut and MCP server integration guidelines.
+
+**Template System Overview**:
+- Templates stored in `templates/` directory
+- `TEMPLATE()` function loads template content during scaffolding
+- `scaffoldProjectFiles()` creates files only if they don't exist (backward compatibility)
+
+**When Templates Need Updates**:
+1. After adding new QShortcuts (like qidea)
+2. When updating MCP server integration guidelines
+3. After significant changes to coding standards or TDD methodology
+4. When adding new agent types or workflow improvements
+
+**Sync Process (REQ-700)**:
+```bash
+# Copy updated root file to template
+cp CLAUDE.md templates/CLAUDE.md
+
+# Verify sync worked
+grep -q "QIDEA" templates/CLAUDE.md && echo "✅ qidea shortcut synced"
+grep -q "MCP Server Integration" templates/CLAUDE.md && echo "✅ MCP guidelines synced"
+```
+
+**Testing Template Deployment**:
+```bash
+# Test in clean directory
+mkdir test-install && cd test-install
+
+# Verify new installation gets complete content
+node ../bin/cli.js --scaffold-only
+grep -q "QIDEA" CLAUDE.md && echo "✅ New installs get qidea"
+grep -q "MCP Server Integration" CLAUDE.md && echo "✅ New installs get MCP guidance"
+
+# Test backward compatibility
+echo "OLD CONTENT" > CLAUDE.md
+node ../bin/cli.js --scaffold-only
+grep -q "OLD CONTENT" CLAUDE.md && echo "✅ Existing files preserved"
+```
+
+**Maintainer Checklist**:
+- [ ] Update root CLAUDE.md with new content
+- [ ] Copy to templates/CLAUDE.md (REQ-700)
+- [ ] Test new installation gets updated content (REQ-701)
+- [ ] Verify existing projects remain unchanged (REQ-702)
+- [ ] Update documentation noting the changes (REQ-703)

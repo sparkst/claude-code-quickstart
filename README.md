@@ -26,10 +26,11 @@ claude-code-quickstart
 This will:
 - Set up MCP servers with smart server detection (Tavily, Brave Search, Context7, Supabase, GitHub, n8n, Cloudflare SSE with production-ready bindings and builds)
 - Configure Claude Code settings with safe permissions and advanced security validation
-- Scaffold project structure with TDD methodology and REQ-ID tracking
+- Scaffold project structure with TDD methodology and REQ-ID tracking including complete CLAUDE.md with all QShortcuts
 - Create agent definitions for specialized workflows including research-focused qidea workflow
 - Apply security enhancements preventing command injection and enforcing trusted domains
 - Provide enhanced post-setup experience with specific component listings and practical usage examples
+- Deploy synchronized templates ensuring new installations get latest CLAUDE.md with comprehensive MCP server integration guidelines
 
 ### Development Setup (Contributors)
 ```bash
@@ -65,10 +66,10 @@ npm test -- test/unit/          # Run specific test category
 
 This CLI tool follows a template-driven architecture with MCP server integration and security-first design. The system consists of:
 
-1. **Smart MCP Server Configuration** — Production-ready servers with intelligent status detection, avoiding false failure messages during setup
+1. **Smart MCP Server Configuration** — Production-ready servers with intelligent status detection for all server types (including SSE), eliminating false failure messages during setup
 2. **Advanced Security Validation** — HTTPS enforcement, trusted domain allowlists, command injection prevention, shell metacharacter filtering
 3. **Enhanced User Experience** — Comprehensive post-setup guidance with specific component listings and practical usage examples
-4. **Project Scaffolding** — Templates following Progressive Documentation Guide with TDD methodology and comprehensive MCP server integration guidelines
+4. **Project Scaffolding** — Synchronized templates following Progressive Documentation Guide with TDD methodology, comprehensive MCP server integration guidelines, and all QShortcuts including qidea research workflow
 5. **Agent System** — Specialized agents for TDD, planning, documentation, security review, release management, and zero-code research workflows
 6. **Requirements Management** — REQ-ID based tracking for TDD compliance with requirements.lock pattern
 
@@ -109,8 +110,8 @@ For detailed implementation guidelines, see [CLAUDE.md](./CLAUDE.md).
 │   ├── e2e/                  # End-to-end workflow tests
 │   ├── performance/          # <500ms responsiveness tests
 │   └── error-boundaries/     # macOS-specific error handling tests
-├── templates/                 # Project scaffolding templates
-│   ├── CLAUDE.md             # TDD methodology template
+├── templates/                 # Project scaffolding templates (synchronized with root)
+│   ├── CLAUDE.md             # TDD methodology template with all QShortcuts and MCP guidance
 │   ├── README.md             # Progressive docs template
 │   └── *.json                # Configuration templates
 ├── requirements/              # Requirements with REQ IDs

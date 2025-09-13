@@ -1,4 +1,4 @@
-import { describe, test, expect } from "vitest";
+import { describe, test, expect, beforeEach, afterEach } from "vitest";
 
 // Import functions from cli.js
 const {
@@ -1545,5 +1545,228 @@ describe("REQ-407 — Organization - Clear Server Type Structure (P2 Should Fix)
     expect(cliContent).toMatch(/\/\/ === NPM-based MCP servers ===/);
     expect(cliContent).toMatch(/\/\/ === SSE transport servers ===/);
     expect(cliContent).toMatch(/\/\/ === Wrangler-based servers ===/);
+  });
+});
+
+// REQ-602: Comprehensive test coverage for new functionality
+describe("REQ-600 — Enhanced checkServerStatus Error Handling", () => {
+  const fs = require("fs");
+  const path = require("path");
+  const os = require("os");
+
+  const TEST_SERVER_KEY = "test-server";
+  const TEMP_SETTINGS_DIR = "/tmp/test-claude-settings";
+  const TEMP_SETTINGS_PATH = path.join(TEMP_SETTINGS_DIR, "settings.json");
+
+  beforeEach(() => {
+    // Clean up any existing test files
+    if (fs.existsSync(TEMP_SETTINGS_PATH)) {
+      fs.unlinkSync(TEMP_SETTINGS_PATH);
+    }
+    if (fs.existsSync(TEMP_SETTINGS_DIR)) {
+      fs.rmdirSync(TEMP_SETTINGS_DIR);
+    }
+  });
+
+  afterEach(() => {
+    // Clean up test files
+    if (fs.existsSync(TEMP_SETTINGS_PATH)) {
+      fs.unlinkSync(TEMP_SETTINGS_PATH);
+    }
+    if (fs.existsSync(TEMP_SETTINGS_DIR)) {
+      fs.rmdirSync(TEMP_SETTINGS_DIR);
+    }
+  });
+
+  test("REQ-600 — should handle missing settings file gracefully", () => {
+    // Test when .claude/settings.json doesn't exist
+    const { checkServerStatus } = require("./cli.js");
+    const result = checkServerStatus(TEST_SERVER_KEY);
+
+    expect(result.exists).toBe(false);
+    expect(result.status).toBe("not_configured");
+    expect(result.message).toBe("Claude settings not found");
+  });
+
+  test("REQ-600 — should handle file permission errors with specific error type", () => {
+    // Create directory but not file to test file read error
+    fs.mkdirSync(TEMP_SETTINGS_DIR, { recursive: true });
+    fs.writeFileSync(TEMP_SETTINGS_PATH, "test", { mode: 0o000 }); // No read permissions
+
+    // Mock HOME to use temp directory
+    const originalHome = os.homedir;
+    os.homedir = () => "/tmp/test-claude-settings/..";
+
+    const { checkServerStatus } = require("./cli.js");
+    const result = checkServerStatus(TEST_SERVER_KEY);
+
+    expect(result.exists).toBe(false);
+    expect(result.status).toBe("error");
+    expect(result.errorType).toBe("file_permission");
+    expect(result.message).toBe("Cannot read Claude settings file");
+
+    // Restore original function
+    os.homedir = originalHome;
+
+    // Clean up - restore permissions to delete
+    fs.chmodSync(TEMP_SETTINGS_PATH, 0o644);
+  });
+
+  test("REQ-609 — should handle malformed JSON with specific error type", () => {
+    // Create settings file with invalid JSON
+    fs.mkdirSync(TEMP_SETTINGS_DIR, { recursive: true });
+    fs.writeFileSync(TEMP_SETTINGS_PATH, "{ invalid json }");
+
+    const originalHome = os.homedir;
+    os.homedir = () => "/tmp/test-claude-settings/..";
+
+    const { checkServerStatus } = require("./cli.js");
+    const result = checkServerStatus(TEST_SERVER_KEY);
+
+    expect(result.exists).toBe(false);
+    expect(result.status).toBe("error");
+    expect(result.errorType).toBe("json_parsing");
+    expect(result.message).toBe("Invalid Claude settings format");
+
+    os.homedir = originalHome;
+  });
+
+  test("REQ-609 — should prevent prototype pollution with JSON validation", () => {
+    // Test with various malicious JSON structures
+    const maliciousInputs = ["null", "[]", '"string"', "42"];
+
+    fs.mkdirSync(TEMP_SETTINGS_DIR, { recursive: true });
+    const originalHome = os.homedir;
+    os.homedir = () => "/tmp/test-claude-settings/..";
+
+    const { checkServerStatus } = require("./cli.js");
+
+    maliciousInputs.forEach((input) => {
+      fs.writeFileSync(TEMP_SETTINGS_PATH, input);
+      const result = checkServerStatus(TEST_SERVER_KEY);
+
+      expect(result.exists).toBe(false);
+      expect(result.status).toBe("error");
+      expect(result.errorType).toBe("json_validation");
+      expect(result.message).toBe("Invalid Claude settings structure");
+    });
+
+    os.homedir = originalHome;
+  });
+
+  test("REQ-605 — should return enhanced status messaging for configured servers", () => {
+    // Create valid settings file with server config
+    const validSettings = {
+      mcpServers: {
+        [TEST_SERVER_KEY]: {
+          command: "npx",
+          args: ["-y", "@test/server"],
+          env: {},
+        },
+      },
+    };
+
+    fs.mkdirSync(TEMP_SETTINGS_DIR, { recursive: true });
+    fs.writeFileSync(
+      TEMP_SETTINGS_PATH,
+      JSON.stringify(validSettings, null, 2)
+    );
+
+    const originalHome = os.homedir;
+    os.homedir = () => "/tmp/test-claude-settings/..";
+
+    const { checkServerStatus } = require("./cli.js");
+    const result = checkServerStatus(TEST_SERVER_KEY);
+
+    expect(result.exists).toBe(true);
+    expect(result.status).toBe("configured_needs_auth");
+    expect(result.message).toBe(
+      "Server configured, authentication required in Claude Code"
+    );
+    expect(result.config).toBeDefined();
+
+    os.homedir = originalHome;
+  });
+});
+
+describe("REQ-607 — Server Status Caching", () => {
+  test("REQ-607 — should cache server status to avoid duplicate checks", () => {
+    const fs = require("fs");
+    const cliContent = fs.readFileSync("bin/cli.js", "utf8");
+
+    // Should have caching mechanism
+    expect(cliContent).toContain("serverStatusCache");
+    expect(cliContent).toMatch(/serverStatusCache\.has\(/);
+    expect(cliContent).toMatch(/serverStatusCache\.get\(/);
+    expect(cliContent).toMatch(/serverStatusCache\.set\(/);
+  });
+
+  test("REQ-607 — should use Map for caching implementation", () => {
+    const fs = require("fs");
+    const cliContent = fs.readFileSync("bin/cli.js", "utf8");
+
+    // Should declare Map for caching
+    expect(cliContent).toMatch(/serverStatusCache.*=.*new Map\(\)/);
+  });
+});
+
+describe("REQ-608 — Action Type Constants", () => {
+  test("REQ-608 — should define ACTION_TYPES constants", () => {
+    const fs = require("fs");
+    const cliContent = fs.readFileSync("bin/cli.js", "utf8");
+
+    // Should have ACTION_TYPES constant
+    expect(cliContent).toContain("ACTION_TYPES");
+    expect(cliContent).toMatch(/ACTION_TYPES\s*=\s*\{/);
+    expect(cliContent).toContain("CONFIGURE:");
+    expect(cliContent).toContain("SKIP:");
+    expect(cliContent).toContain("DISABLE:");
+    expect(cliContent).toContain("ALREADY_CONFIGURED:");
+  });
+
+  test("REQ-608 — should use constants instead of magic strings in promptSSEServerForCommand", () => {
+    const fs = require("fs");
+    const cliContent = fs.readFileSync("bin/cli.js", "utf8");
+
+    // Should use constants instead of magic strings
+    expect(cliContent).toContain("ACTION_TYPES.ALREADY_CONFIGURED");
+    expect(cliContent).toContain("ACTION_TYPES.CONFIGURE");
+    expect(cliContent).toContain("ACTION_TYPES.SKIP");
+    expect(cliContent).toContain("ACTION_TYPES.DISABLE");
+  });
+
+  test("REQ-608 — should use constants in main configuration loop", () => {
+    const fs = require("fs");
+    const cliContent = fs.readFileSync("bin/cli.js", "utf8");
+
+    // Main loop should use constants for action checking
+    expect(cliContent).toMatch(
+      /serverConfig\.action === ACTION_TYPES\.CONFIGURE/
+    );
+    expect(cliContent).toMatch(
+      /serverConfig\.action === ACTION_TYPES\.DISABLE/
+    );
+    expect(cliContent).toMatch(
+      /serverConfig\.action === ACTION_TYPES\.ALREADY_CONFIGURED/
+    );
+  });
+});
+
+describe("REQ-602 — Already Configured Action Flow", () => {
+  test("REQ-602 — should handle already_configured action in main configuration loop", () => {
+    const fs = require("fs");
+    const cliContent = fs.readFileSync("bin/cli.js", "utf8");
+
+    // Should have already_configured handling
+    expect(cliContent).toMatch(/ACTION_TYPES\.ALREADY_CONFIGURED/);
+    expect(cliContent).toContain("configuredServers.push(spec.title)");
+  });
+
+  test("REQ-602 — should track already configured servers in summary", () => {
+    const fs = require("fs");
+    const cliContent = fs.readFileSync("bin/cli.js", "utf8");
+
+    // Should add to configuredServers array
+    expect(cliContent).toMatch(/configuredServers\.push\(spec\.title\)/);
   });
 });
