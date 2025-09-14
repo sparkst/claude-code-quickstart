@@ -1,8 +1,124 @@
-# Claude Code User Guide
+# Claude Code Quickstart - Comprehensive User Guide
 
-Welcome to Claude Code! This guide will help you get the most out of your AI-powered development environment.
+A complete guide to installing, configuring, and using the Claude Code Quickstart tool for rapid project setup with MCP servers, TDD methodology, and agent-based workflows.
 
-## 🎁 What You Just Got
+## Table of Contents
+
+1. [Installation](#installation)
+2. [Quick Start](#quick-start)
+3. [Understanding the Setup](#understanding-the-setup)
+4. [Using QShortcuts](#using-qshortcuts)
+5. [MCP Server Configuration](#mcp-server-configuration)
+6. [Project Structure](#project-structure)
+7. [TDD Workflow](#tdd-workflow)
+8. [Troubleshooting](#troubleshooting)
+9. [Advanced Configuration](#advanced-configuration)
+
+---
+
+## Installation
+
+### Prerequisites
+
+- **Node.js** 18 or higher
+- **Claude Code** (Anthropic's VS Code extension or desktop app)
+- **Git** for version control
+
+### Global Installation
+
+```bash
+# Install the CLI tool globally
+npm install -g claude-code-quickstart
+
+# Verify installation
+claude-code-quickstart --help
+```
+
+### System Requirements
+
+- **macOS**: 10.15+ (with Gatekeeper compatibility)
+- **Linux**: Ubuntu 18.04+ or equivalent
+- **Windows**: Windows 10+ (with WSL recommended)
+- **Memory**: 4GB RAM minimum
+- **Storage**: 1GB free space for dependencies
+
+---
+
+## Quick Start
+
+### 1. Run the Setup Command
+
+```bash
+claude-code-quickstart
+```
+
+### 2. Choose Your MCP Server Scope
+
+The tool will prompt you to select a scope for MCP servers:
+
+- **User** (recommended): Available across all projects
+- **Project**: Shared with team via `.mcp.json` file
+- **Local**: Private to current session only
+
+### 3. Configure MCP Servers
+
+You'll be guided through configuring various MCP servers:
+
+#### Research & Information Servers
+- **Brave Search**: Web search and current information
+- **Tavily**: Advanced web crawling and content extraction
+- **Context7**: Documentation and library context
+
+#### Development Servers
+- **Supabase**: Database operations and authentication
+- **GitHub**: Repository management and CI/CD
+- **Cloudflare**: Edge computing and real-time features
+- **n8n**: Workflow automation
+
+### 4. Project Scaffolding
+
+The tool will create a complete project structure:
+
+```
+your-project/
+├── .claude/
+│   ├── settings.json       # Claude Code configuration
+│   └── agents/             # Specialized agent definitions
+├── requirements/
+│   ├── current.md          # Active requirements
+│   └── requirements.lock.md # Snapshot for tasks
+├── CLAUDE.md              # TDD methodology and best practices
+├── README.md              # Project documentation template
+└── .gitignore             # Standard Git exclusions
+```
+
+---
+
+## Understanding the Setup
+
+### What You Get
+
+#### ✅ MCP Servers Configured
+- **Smart Detection**: Avoids duplicate configurations
+- **Secure Validation**: HTTPS-only URLs with domain allowlists
+- **Production-Ready**: Real subprocess execution, not simulation
+
+#### ✅ Project Structure
+- **TDD Methodology**: Complete CLAUDE.md with all QShortcuts
+- **Agent System**: Specialized workflows for different tasks
+- **Security Settings**: Safe permissions and command validation
+
+#### ✅ Development Workflow
+- **Requirements Tracking**: REQ-ID based system
+- **Progressive Documentation**: Templates for maintainable docs
+- **Quality Gates**: Linting, testing, and security validation
+
+### Security Features
+
+- **Command Injection Prevention**: Shell metacharacter filtering
+- **Domain Validation**: Trusted domain allowlists for SSE servers
+- **Path Traversal Protection**: Prevents `../` and similar attacks
+- **HTTPS Enforcement**: All external connections use secure protocols
 
 ### Core Components
 
@@ -86,196 +202,573 @@ claude
 3. Run: `claude`
 4. You're ready to start coding with AI!
 
-## ⚡ Claude Code Shortcuts - Your New Superpowers
+---
 
-### Essential Workflow Commands
+## Using QShortcuts
 
-**`qnew`** - Run before each new feature
-- Refreshes Claude Code's context with your project rules
-- Sets up proper coding standards and TDD methodology
-- **Example**: Type `qnew` then "I want to add user authentication"
+QShortcuts are specialized commands that trigger agent-based workflows. Use them directly in Claude Code chat:
 
-**`qplan`** - Creates detailed implementation plans
-- Analyzes requirements and breaks them into steps
-- Considers existing codebase patterns and architecture
-- **Example**: `qplan - I want a new web form that collects email, first name, and last name`
+### Planning & Research
 
-**`qcode`** - Executes the plan and writes the code
-- Implements features following TDD principles
-- Writes tests first, then implementation code
-- **Example**: After qplan, just type `qcode` to implement
-
-**`qcheck`** - Principal Engineer code review + QA analysis
-- Comprehensive code quality analysis
-- Security vulnerability scanning
-- Performance optimization suggestions
-- **Example**: `qcheck` - If issues found, run qplan to fix them, then qcode + qcheck
-
-**`qdoc`** - Updates all documentation
-- Automatically updates README, CHANGELOG, and API docs
-- Maintains user and developer documentation
-- **Example**: `qdoc` after completing features
-
-**`qgit`** - Commits your work to Git with proper messages
-- Creates conventional commit messages
-- Ensures all tests pass before committing
-- **Example**: `qgit` when ready to save your progress
-
-### Advanced Research Commands
-
-**`qidea`** - Zero-code research and ideation
-- Architecture brainstorming and design options
-- UX recommendations and user experience patterns
-- Testing strategies and quality assurance approaches
-- **Example**: `qidea - What's the best architecture for a real-time chat application?`
-
-**`qux`** - User experience testing scenarios
-- Generates comprehensive UX test scenarios
-- Prioritizes testing by importance and user impact
-- **Example**: `qux` after implementing user-facing features
-
-## 🔐 Authentication & Setup
-
-### Cloudflare SSE Authentication
-⚠️  **IMPORTANT**: For Cloudflare servers, you must authenticate in Claude Code:
-- Open Claude Code and run: `/mcp cloudflare-bindings`
-- Open Claude Code and run: `/mcp cloudflare-builds`
-- Follow the authentication prompts for each
-- ⚠️  Note: `npx wrangler login` does NOT work with MCP servers
-
-### Other MCP Server Authentication
-Most other MCP servers use API keys that you configure during setup:
-- **Supabase**: Project URL and service role key
-- **GitHub**: Personal access token with appropriate scopes
-- **Brave Search**: API key from Brave Search API
-- **Tavily**: API key from Tavily platform
-
-## 🎯 Practical Examples
-
-### Building a Todo App
+#### `QIDEA`
+Research and ideation mode for architectural decisions:
 ```
-1. qnew
-2. "I want to build a simple todo app with React and Supabase"
-3. qplan
-4. qcode
-5. qcheck (fix any issues if found)
-6. qdoc
-7. qgit
+QIDEA
+Research authentication patterns for a multi-tenant SaaS app
+```
+- **Agent**: General-purpose (research focus)
+- **Output**: Architecture options, UX recommendations, testing strategies
+- **No Code**: Pure strategic/research focus
+
+#### `QPLAN`
+Analyze codebase and create implementation plans:
+```
+QPLAN
+Add user profile management with avatar uploads
+```
+- **Agent**: Planner
+- **Output**: Consistent approach with existing codebase
+
+### Development Workflow
+
+#### `QNEW`
+Start new features with requirements analysis:
+```
+QNEW
+Implement password reset via email
+```
+- **Agents**: Planner → docs-writer
+- **Output**: Requirements documented in `requirements/current.md`
+
+#### `QCODE`
+Implement features with TDD approach:
+```
+QCODE
+Implement the password reset feature
+```
+- **Agents**: test-writer (first) → debugger (as needed)
+- **Process**: Creates failing tests, then implements code
+
+### Quality Assurance
+
+#### `QCHECK`
+Comprehensive code review:
+```
+QCHECK
+```
+- **Agents**: PE-Reviewer + security-reviewer (for sensitive code)
+- **Analysis**: Functions, tests, security, best practices
+
+#### `QCHECKF` / `QCHECKT`
+Focused reviews for functions or tests:
+```
+QCHECKF
+QCHECKT
 ```
 
-### Adding Authentication
+#### `QUX`
+User experience testing scenarios:
 ```
-1. qnew  
-2. "Add user authentication with email/password login"
-3. qplan
-4. qcode
-5. qcheck
-6. Test: "/mcp supabase" to verify database setup
-7. qdoc
-8. qgit
+QUX
+```
+- **Agent**: ux-tester
+- **Output**: Prioritized test scenarios for human UX testing
+
+### Documentation & Deployment
+
+#### `QDOC`
+Update project documentation:
+```
+QDOC
+```
+- **Agent**: docs-writer
+- **Updates**: READMEs, CHANGELOG from diffs and requirements
+
+#### `QGIT`
+Commit and push changes:
+```
+QGIT
+```
+- **Agent**: release-manager
+- **Process**: Stage changes, commit with conventional format, push
+
+---
+
+## MCP Server Configuration
+
+### Available Servers
+
+#### Research Servers
+
+**Brave Search**
+- **Purpose**: Web search, current events, competitive analysis
+- **Setup**: No API key required
+- **Usage**: `qidea` research, `qplan` market analysis
+
+**Tavily**
+- **Purpose**: Advanced web crawling, site mapping
+- **Setup**: API key from [tavily.com](https://tavily.com)
+- **Usage**: Comprehensive research, system analysis
+
+**Context7**
+- **Purpose**: Documentation and library context
+- **Setup**: API key from [context7.com](https://context7.com)
+- **Usage**: Technical reference, API documentation
+
+#### Development Servers
+
+**Supabase**
+- **Purpose**: Database operations, authentication
+- **Setup**: Project URL and service role key
+- **Usage**: Database schema, RLS policies, TypeScript types
+
+**GitHub**
+- **Purpose**: Repository management, CI/CD
+- **Setup**: Personal access token
+- **Usage**: Issues, PRs, releases, project management
+
+**Cloudflare (SSE)**
+- **Purpose**: Edge computing, real-time features
+- **Setup**: SSE endpoint URL
+- **Usage**: Workers, R2, D1, real-time streaming
+
+**n8n**
+- **Purpose**: Workflow automation
+- **Setup**: Instance URL and API key
+- **Usage**: Automated workflows, integrations
+
+### Manual Configuration
+
+If you need to manually add or update MCP servers:
+
+```bash
+# List current servers
+claude mcp list
+
+# Add a new server
+claude mcp add server-name --transport stdio --command npx --args package-name
+
+# For SSE servers
+claude mcp add server-name --transport sse --url https://your-sse-endpoint.com
 ```
 
-### Research Phase
+---
+
+## Project Structure
+
+### Core Files
+
+**CLAUDE.md**
+- Complete TDD methodology and best practices
+- All QShortcuts with agent guidance
+- MCP server integration guidelines
+- Security and testing requirements
+
+**requirements/current.md**
+- Active requirements with REQ-IDs
+- Acceptance criteria and non-goals
+- Links to relevant documentation
+
+**.claude/settings.json**
+- Claude Code permissions and modes
+- Security boundaries and file access
+- Agent configurations
+
+### Directory Organization
+
 ```
-1. qidea
-2. "What are the best practices for React state management in 2024?"
-3. Use Brave Search results to inform your decisions
-4. qplan with specific architecture choices
-5. qcode to implement
+src/
+├── auth/           # Authentication domain
+├── api/            # HTTP endpoints
+├── core/           # Business logic
+├── ui/             # User interface
+└── utils/          # Shared utilities
+
+test/
+├── unit/           # Unit tests (*.spec.ts)
+├── integration/    # Integration tests
+└── e2e/            # End-to-end tests
+
+.claude/
+├── agents/         # Agent definitions
+└── settings.json   # Configuration
 ```
 
-## 🔍 Troubleshooting
+---
+
+## TDD Workflow
+
+### Requirements-First Development
+
+1. **Start with Requirements** (`QNEW`)
+   - Define acceptance criteria
+   - Create REQ-IDs for traceability
+   - Document non-goals and constraints
+
+2. **Create Failing Tests** (`QCODE` step 1)
+   - Tests reference REQ-IDs in titles
+   - Cover edge cases and error conditions
+   - Use property-based testing where applicable
+
+3. **Implement Minimal Code** (`QCODE` step 2)
+   - Make tests pass with simplest solution
+   - Follow domain vocabulary and patterns
+   - Maintain type safety
+
+4. **Review and Refactor** (`QCHECK`)
+   - Security validation for sensitive code
+   - Performance and maintainability review
+   - Documentation updates
+
+### Example TDD Flow
+
+```bash
+# 1. Define requirements
+QNEW
+Implement user password reset via email
+
+# 2. Plan implementation
+QPLAN
+Review existing auth patterns and email service
+
+# 3. Implement with tests-first
+QCODE
+Create failing tests for password reset flow, then implement
+
+# 4. Review implementation
+QCHECK
+Comprehensive review including security validation
+
+# 5. Test user experience
+QUX
+Generate test scenarios for password reset flow
+
+# 6. Update documentation
+QDOC
+Update auth README and API documentation
+
+# 7. Commit changes
+QGIT
+Commit with conventional format and push
+```
+
+---
+
+## Troubleshooting
 
 ### Common Issues
 
-**MCP Server Connection Issues**
-- Run `/mcp list` in Claude Code to check server status
-- For SSE servers (Cloudflare): Ensure authentication via `/mcp <server-name>`
-- For API-based servers: Verify API keys are correctly configured
+#### Installation Issues
 
-**Tests Failing**
-- Run `qcheck` to identify specific issues
-- Use `qplan` to create a fix strategy
-- Run `qcode` to implement fixes
-- Repeat until `qcheck` passes
+**Symptom**: "Permission denied" or "Command not found"
 
-**Code Quality Issues** 
-- `qcheck` will identify code quality problems
-- Follow the PE review suggestions
-- Use `qplan` + `qcode` to implement improvements
-
-**Documentation Out of Date**
-- Run `qdoc` after any major changes
-- This updates README, CHANGELOG, and API documentation
-- Happens automatically but can be run manually anytime
-
-### Getting Help
-
-**Check Your Setup**
+**Solutions**:
 ```bash
-# Verify Claude Code installation
-claude --version
+# Fix permissions
+sudo npm install -g claude-code-quickstart
 
-# Check MCP server status
-claude mcp list
+# Verify PATH includes npm global bin
+npm config get prefix
+echo $PATH
 
-# Verify project structure
-ls -la .claude/
+# Alternative: Use npx
+npx claude-code-quickstart
 ```
 
-**Research and Support**
-- Use `qidea` for architecture and design questions
-- Search for "Claude Code best practices 2024" using Brave Search integration
-- Check the CLAUDE.md file for your project's specific coding rules
+#### MCP Server Connection Problems
 
-## 📖 Advanced Usage
+**Symptom**: "Failed to connect to MCP server"
 
-### MCP Server Usage Patterns
+**Solutions**:
+1. Check server status: `claude mcp list`
+2. Verify API keys are set correctly
+3. For SSE servers, validate URL format and domain
+4. Restart Claude Code application
 
-**Database Operations (Supabase)**
-- Use during `qcode` for database implementations
-- Best for schema creation, RLS policies, and auth setup
-- Integration with TypeScript type generation
+**Debug Commands**:
+```bash
+# List all MCP servers
+claude mcp list
 
-**Repository Management (GitHub)**
-- Use during `qgit` for PR creation and management
-- Best for issue analysis during `qplan` phase
-- Changelog generation during `qdoc`
+# Check specific server status
+claude mcp status server-name
 
-**Research and Information (Brave Search & Tavily)**
-- Use during `qidea` for research and competitive analysis
-- Best for finding current best practices and documentation
-- Avoid during `qcode` - focus on implementation
+# Remove and re-add problematic server
+claude mcp remove server-name
+claude-code-quickstart  # Re-run setup
+```
 
-**Real-time Features (Cloudflare SSE)**
-- Use during `qcode` for server-sent events and Workers
-- Best for real-time updates and edge computing
-- Integration with KV, R2, and D1 services
+#### Template Sync Issues
 
-### Customizing Your Workflow
+**Symptom**: Missing QShortcuts or outdated CLAUDE.md
 
-**Project-Specific Rules**
-Edit your CLAUDE.md file to customize:
-- Coding standards and style preferences
-- Testing requirements and frameworks
-- Architecture patterns and constraints
-- MCP server usage guidelines
+**Solutions**:
+1. Re-run setup: `claude-code-quickstart`
+2. Manually update templates:
+   ```bash
+   # Backup existing
+   cp CLAUDE.md CLAUDE.md.backup
 
-**Environment Configuration**
-Configure `.claude/settings.json` for:
-- MCP server credentials and endpoints
-- Agent behavior and preferences
-- Project-specific tool integrations
+   # Get latest template
+   claude-code-quickstart --scaffold-only
 
-## 🎉 You're Ready!
+   # Merge changes manually
+   ```
 
-Start with a simple feature using the essential workflow:
-1. `qnew` - Set context
-2. Describe what you want to build
-3. `qplan` - Get implementation plan
-4. `qcode` - Build it
-5. `qcheck` - Review quality
-6. `qdoc` - Update docs
-7. `qgit` - Commit changes
+#### Test Infrastructure Problems
 
-The AI will guide you through each step, ensuring high-quality, well-tested, and properly documented code. Welcome to the future of development!
+**Symptom**: E2E tests failing with "Module not found"
+
+**Solutions**:
+1. Verify TypeScript compilation:
+   ```bash
+   npx tsc --noEmit
+   ```
+2. Check test utilities exist:
+   ```bash
+   ls -la test/utils/
+   ```
+3. Run tests with verbose output:
+   ```bash
+   npm test -- --verbose
+   ```
+
+### Security Warnings
+
+#### Command Injection Detection
+
+If you see security warnings about "dangerous characters", ensure:
+- URLs use only alphanumeric, dots, hyphens, and forward slashes
+- No shell metacharacters: `;&|`\$(){}[]<>'"\\`
+- HTTPS-only for external connections
+
+#### Domain Validation Failures
+
+For SSE servers, ensure URLs use trusted domains:
+- `*.mcp.cloudflare.com`
+- `localhost` (development only)
+
+### Performance Issues
+
+**Symptom**: Slow CLI response times
+
+**Solutions**:
+```bash
+# Clear npm cache
+npm cache clean --force
+
+# Update to latest version
+npm update -g claude-code-quickstart
+
+# Check system resources
+htop  # Linux
+top   # macOS
+```
+
+### API Key Issues
+
+**Symptom**: "Unauthorized" or "Invalid API key"
+
+**Check API Keys**:
+```bash
+# Supabase
+echo $SUPABASE_URL
+echo $SUPABASE_SERVICE_ROLE_KEY
+
+# GitHub
+echo $GITHUB_TOKEN
+
+# Other services
+env | grep -i api
+```
+
+**Re-configure APIs**:
+```bash
+# Re-run specific server setup
+claude mcp remove supabase
+claude-code-quickstart  # Select only Supabase
+```
+
+---
+
+## Advanced Configuration
+
+### Custom Agent Definitions
+
+Create custom agents in `.claude/agents/`:
+
+```json
+{
+  "name": "custom-reviewer",
+  "description": "Domain-specific code reviewer",
+  "triggers": ["QCUSTOM"],
+  "capabilities": [
+    "code-review",
+    "security-analysis",
+    "performance-optimization"
+  ]
+}
+```
+
+### Environment-Specific Settings
+
+**Development**:
+```json
+{
+  "acceptEdits": true,
+  "permissions": {
+    "write": ["./src/", "./test/", "./docs/"],
+    "execute": ["npm", "git", "claude"]
+  }
+}
+```
+
+**Production/CI**:
+```json
+{
+  "acceptEdits": false,
+  "permissions": {
+    "write": [],
+    "execute": ["npm test", "npm run lint"]
+  }
+}
+```
+
+### Custom MCP Server Integration
+
+To add organization-specific MCP servers:
+
+1. **Define Server Spec**:
+   ```javascript
+   {
+     key: "company-api",
+     title: "Company Internal API",
+     envVar: "COMPANY_API_KEY",
+     helpUrl: "https://internal.company.com/api-docs",
+     command: "npx",
+     args: (key) => ["-y", "@company/mcp-server", "--api-key", key]
+   }
+   ```
+
+2. **Add Security Validation**:
+   ```javascript
+   function validateCompanyApiKey(key) {
+     if (!key.startsWith('comp_')) {
+       throw new Error('Company API key must start with comp_');
+     }
+     return key;
+   }
+   ```
+
+3. **Update Post-Setup Guide**:
+   Include usage examples and authentication steps.
+
+### Performance Tuning
+
+#### Server Status Caching
+The tool caches MCP server status to avoid duplicate checks:
+
+```javascript
+// Cached for session duration
+const serverStatusCache = new Map();
+```
+
+#### Efficient Server Lookups
+Use boolean flags instead of O(n) searches:
+
+```javascript
+const HAS_CLOUDFLARE_SSE_SERVERS = SERVER_SPECS.some(
+  spec => spec.transport === "sse" && spec.key.startsWith("cloudflare")
+);
+```
+
+### Team Configuration
+
+#### Shared MCP Configuration
+
+For team projects, use project scope:
+
+```bash
+# Run setup with project scope
+claude-code-quickstart
+# Select "Project" scope when prompted
+```
+
+This creates `.mcp.json` in your project root that can be committed to version control.
+
+#### CI/CD Integration
+
+**GitHub Actions**:
+```yaml
+- name: Setup Claude Code Quickstart
+  run: |
+    npm install -g claude-code-quickstart
+    claude-code-quickstart --ci-mode
+  env:
+    SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+    SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+### Development Tips
+
+#### Quick Setup for New Projects
+
+```bash
+# Create new project with quickstart
+mkdir my-new-project
+cd my-new-project
+git init
+claude-code-quickstart
+
+# Start development immediately
+qnew
+# Describe your project requirements
+```
+
+#### Backup and Restore
+
+**Backup Configuration**:
+```bash
+# Backup MCP configuration
+cp ~/.claude/settings.json ~/.claude/settings.json.backup
+
+# Backup project configuration
+tar -czf project-backup.tar.gz .claude/ requirements/ CLAUDE.md
+```
+
+**Restore Configuration**:
+```bash
+# Restore from backup
+cp ~/.claude/settings.json.backup ~/.claude/settings.json
+
+# Restore project files
+tar -xzf project-backup.tar.gz
+```
+
+---
+
+## Next Steps
+
+### Learning Resources
+
+- **[Claude Code Documentation](https://docs.claude.ai/)**: Official Claude Code guides
+- **[MCP Protocol](https://modelcontextprotocol.io/)**: Understanding MCP servers
+- **[TDD Best Practices](./CLAUDE.md)**: Complete methodology in your project
+
+### Community & Support
+
+- **Issues**: [GitHub Issues](https://github.com/sparkry/claude-code-quickstart/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/sparkry/claude-code-quickstart/discussions)
+- **Updates**: Follow [@SparkryAI](https://twitter.com/SparkryAI) for announcements
+
+### Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Follow TDD methodology with QShortcuts
+4. Submit a pull request with conventional commits
+
+---
+
+**Ready to build with Claude Code?** Start with `claude-code-quickstart` and accelerate your development workflow with AI-powered assistance, comprehensive testing, and production-ready integrations.
