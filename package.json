@@ -47,8 +47,5 @@
     "scripts/",
     "README.md",
     "LICENSE"
-  ],
-  "dependencies": {
-    "claude-code-quickstart": "file:claude-code-quickstart-1.0.2.tgz"
-  }
+  ]
 }
