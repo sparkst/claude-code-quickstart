@@ -21,7 +21,9 @@ import {
   createMacOSTestPaths,
   validateMcpServerConfig,
   setupTestEnvironment,
-  teardownTestEnvironment
+  teardownTestEnvironment,
+  createTestFixtures,
+  mockGlobalNpmInstall
 } from "./test-helpers.js";
 
 describe("REQ-008 — Test Utilities and Helpers", () => {
@@ -180,13 +182,13 @@ describe("REQ-008 — Test Utilities and Helpers", () => {
       expect(fixtures).toHaveProperty("packageJson");
 
       expect(fs.existsSync(fixtures.claudeConfig)).toBe(true);
-      expect(Object.keys(fixtures.mcpConfigs)).toHaveLength.greaterThan(0);
+      expect(Object.keys(fixtures.mcpConfigs).length).toBeGreaterThan(0);
     });
 
     test("REQ-008 — generates complex multi-server scenarios", async () => {
       const fixtures = await createTestFixtures(tempDir, "complex-multi-server");
 
-      expect(Object.keys(fixtures.mcpConfigs)).toHaveLength.greaterThanOrEqual(3);
+      expect(Object.keys(fixtures.mcpConfigs).length).toBeGreaterThanOrEqual(3);
       
       // Should include different server types
       const serverTypes = Object.values(fixtures.mcpConfigs).map(config => config.serverType);
