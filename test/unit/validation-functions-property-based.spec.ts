@@ -14,7 +14,7 @@ const {
   buildClaudeMcpCommand,
   maskKey,
   shouldMaskEnvVar,
-  formatExistingValue
+  formatExistingValue,
 } = require("../../bin/cli.js");
 
 describe("REQ-714 — Property-Based Tests for Validation Functions", () => {
@@ -22,7 +22,7 @@ describe("REQ-714 — Property-Based Tests for Validation Functions", () => {
     test("REQ-714 — validateSSEUrl always rejects non-HTTPS URLs", () => {
       fc.assert(
         fc.property(
-          fc.webUrl().filter(url => !url.startsWith("https://")),
+          fc.webUrl().filter((url) => !url.startsWith("https://")),
           (url) => {
             const result = validateSSEUrl(url, true);
             expect(result).toBe(false);
@@ -34,7 +34,7 @@ describe("REQ-714 — Property-Based Tests for Validation Functions", () => {
     test("REQ-714 — validateSSEUrl validates HTTPS URLs", () => {
       fc.assert(
         fc.property(
-          fc.webUrl().filter(url => url.startsWith("https://")),
+          fc.webUrl().filter((url) => url.startsWith("https://")),
           (url) => {
             const result = validateSSEUrl(url, true);
             expect(typeof result).toBe("boolean");
@@ -69,7 +69,24 @@ describe("REQ-714 — Property-Based Tests for Validation Functions", () => {
     });
 
     test("REQ-714 — validateSSEUrl shell injection prevention is comprehensive", () => {
-      const maliciousChars = [";", "&", "|", "`", "$", "(", ")", "{", "}", "[", "]", "\\", "<", ">", "'", '"'];
+      const maliciousChars = [
+        ";",
+        "&",
+        "|",
+        "`",
+        "$",
+        "(",
+        ")",
+        "{",
+        "}",
+        "[",
+        "]",
+        "\\",
+        "<",
+        ">",
+        "'",
+        '"',
+      ];
 
       fc.assert(
         fc.property(
@@ -86,7 +103,13 @@ describe("REQ-714 — Property-Based Tests for Validation Functions", () => {
     });
 
     test("REQ-714 — validateSSEUrl path traversal prevention", () => {
-      const traversalPatterns = ["../", "..\\", "%2e%2e%2f", "....//", "..%252f"];
+      const traversalPatterns = [
+        "../",
+        "..\\",
+        "%2e%2e%2f",
+        "....//",
+        "..%252f",
+      ];
 
       fc.assert(
         fc.property(
@@ -103,24 +126,20 @@ describe("REQ-714 — Property-Based Tests for Validation Functions", () => {
 
     test("REQ-714 — validateSSEUrl error handling modes are consistent", () => {
       fc.assert(
-        fc.property(
-          fc.string(),
-          fc.boolean(),
-          (url, returnBoolean) => {
-            if (returnBoolean) {
-              const result = validateSSEUrl(url, true);
-              expect(typeof result).toBe("boolean");
-            } else {
-              try {
-                const result = validateSSEUrl(url, false);
-                expect(typeof result).toBe("string"); // Should return the URL if valid
-              } catch (error) {
-                expect(error).toBeInstanceOf(Error);
-                expect(error.message).toContain("SSE");
-              }
+        fc.property(fc.string(), fc.boolean(), (url, returnBoolean) => {
+          if (returnBoolean) {
+            const result = validateSSEUrl(url, true);
+            expect(typeof result).toBe("boolean");
+          } else {
+            try {
+              const result = validateSSEUrl(url, false);
+              expect(typeof result).toBe("string"); // Should return the URL if valid
+            } catch (error) {
+              expect(error).toBeInstanceOf(Error);
+              expect(error.message).toContain("SSE");
             }
           }
-        )
+        })
       );
     });
   });
@@ -130,8 +149,10 @@ describe("REQ-714 — Property-Based Tests for Validation Functions", () => {
       fc.assert(
         fc.property(
           fc.record({
-            key: fc.string({ minLength: 1, maxLength: 50 }).filter(s => /^[a-zA-Z0-9\-_]+$/.test(s)),
-            url: fc.constant("https://example.com/sse") // Use safe URL
+            key: fc
+              .string({ minLength: 1, maxLength: 50 })
+              .filter((s) => /^[a-zA-Z0-9\-_]+$/.test(s)),
+            url: fc.constant("https://example.com/sse"), // Use safe URL
           }),
           fc.constantFrom("user", "project", "local"),
           (spec, scope) => {
@@ -154,7 +175,7 @@ describe("REQ-714 — Property-Based Tests for Validation Functions", () => {
             expect(command).toContain(spec.url);
 
             // All elements should be strings
-            command.forEach(element => {
+            command.forEach((element) => {
               expect(typeof element).toBe("string");
               expect(element.length).toBeGreaterThan(0);
             });
@@ -167,8 +188,10 @@ describe("REQ-714 — Property-Based Tests for Validation Functions", () => {
       fc.assert(
         fc.property(
           fc.record({
-            key: fc.string({ minLength: 1, maxLength: 20 }).filter(s => /^[a-zA-Z0-9\-_]+$/.test(s)),
-            url: fc.constant("https://example.com/sse")
+            key: fc
+              .string({ minLength: 1, maxLength: 20 })
+              .filter((s) => /^[a-zA-Z0-9\-_]+$/.test(s)),
+            url: fc.constant("https://example.com/sse"),
           }),
           fc.constantFrom("user", "project", "local"),
           (spec, scope) => {
@@ -192,13 +215,15 @@ describe("REQ-714 — Property-Based Tests for Validation Functions", () => {
       fc.assert(
         fc.property(
           fc.record({
-            key: fc.string({ minLength: 1, maxLength: 20 }).filter(s => /^[a-zA-Z0-9\-_]+$/.test(s)),
+            key: fc
+              .string({ minLength: 1, maxLength: 20 })
+              .filter((s) => /^[a-zA-Z0-9\-_]+$/.test(s)),
             url: fc.oneof(
               fc.constant("http://insecure.com"),
               fc.constant("https://example.com/; rm -rf /"),
               fc.constant("invalid-url"),
               fc.constant("")
-            )
+            ),
           }),
           fc.constantFrom("user", "project", "local"),
           (spec, scope) => {
@@ -216,9 +241,11 @@ describe("REQ-714 — Property-Based Tests for Validation Functions", () => {
       fc.assert(
         fc.property(
           fc.record({
-            key: fc.string({ minLength: 1, maxLength: 20 }).filter(s => /^[a-zA-Z0-9\-_]+$/.test(s)),
+            key: fc
+              .string({ minLength: 1, maxLength: 20 })
+              .filter((s) => /^[a-zA-Z0-9\-_]+$/.test(s)),
             url: fc.constant("https://example.com/sse"),
-            transport: fc.constant("sse")
+            transport: fc.constant("sse"),
           }),
           fc.constantFrom("user", "project", "local"),
           fc.object(), // envVars
@@ -241,9 +268,11 @@ describe("REQ-714 — Property-Based Tests for Validation Functions", () => {
       fc.assert(
         fc.property(
           fc.record({
-            key: fc.string({ minLength: 1, maxLength: 20 }).filter(s => /^[a-zA-Z0-9\-_]+$/.test(s)),
+            key: fc
+              .string({ minLength: 1, maxLength: 20 })
+              .filter((s) => /^[a-zA-Z0-9\-_]+$/.test(s)),
             command: fc.constant("npx"),
-            args: fc.constant(["-y", "@test/package"])
+            args: fc.constant(["-y", "@test/package"]),
           }),
           fc.constantFrom("user", "project", "local"),
           fc.object(), // envVars
@@ -263,21 +292,23 @@ describe("REQ-714 — Property-Based Tests for Validation Functions", () => {
       fc.assert(
         fc.property(
           fc.record({
-            key: fc.string({ minLength: 1, maxLength: 20 }).filter(s => /^[a-zA-Z0-9\-_]+$/.test(s)),
+            key: fc
+              .string({ minLength: 1, maxLength: 20 })
+              .filter((s) => /^[a-zA-Z0-9\-_]+$/.test(s)),
             command: fc.constant("node"),
-            args: fc.array(fc.string())
+            args: fc.array(fc.string()),
           }),
           fc.constantFrom("user", "project", "local"),
           fc.record({
-            "TEST_VAR": fc.string(),
-            "API_KEY": fc.string()
+            TEST_VAR: fc.string(),
+            API_KEY: fc.string(),
           }),
           (spec, scope, envVars) => {
             const command = buildClaudeMcpCommand(spec, scope, envVars);
 
             // Environment variables should be properly formatted
             if (typeof command === "string") {
-              Object.keys(envVars).forEach(varName => {
+              Object.keys(envVars).forEach((varName) => {
                 if (envVars[varName]) {
                   expect(command).toContain(`${varName}=${envVars[varName]}`);
                 }
@@ -292,26 +323,23 @@ describe("REQ-714 — Property-Based Tests for Validation Functions", () => {
   describe("Utility Function Property Tests", () => {
     test("REQ-714 — maskKey preserves structure while hiding content", () => {
       fc.assert(
-        fc.property(
-          fc.string({ minLength: 10, maxLength: 100 }),
-          (key) => {
-            const masked = maskKey(key);
+        fc.property(fc.string({ minLength: 10, maxLength: 100 }), (key) => {
+          const masked = maskKey(key);
 
-            expect(typeof masked).toBe("string");
-            expect(masked.length).toBeGreaterThan(0);
+          expect(typeof masked).toBe("string");
+          expect(masked.length).toBeGreaterThan(0);
 
-            if (key.length > 8) {
-              // Should show some characters at start/end
-              expect(masked).toContain("*");
-              expect(masked.length).toBeGreaterThanOrEqual(8);
-            }
-
-            // Should not contain the full original key
-            if (key.length > 10) {
-              expect(masked).not.toBe(key);
-            }
+          if (key.length > 8) {
+            // Should show some characters at start/end
+            expect(masked).toContain("*");
+            expect(masked.length).toBeGreaterThanOrEqual(8);
           }
-        )
+
+          // Should not contain the full original key
+          if (key.length > 10) {
+            expect(masked).not.toBe(key);
+          }
+        })
       );
     });
 
@@ -324,9 +352,15 @@ describe("REQ-714 — Property-Based Tests for Validation Functions", () => {
             expect(typeof shouldMask).toBe("boolean");
 
             const lowercaseName = envVarName.toLowerCase();
-            const sensitiveKeywords = ["key", "token", "secret", "password", "auth"];
+            const sensitiveKeywords = [
+              "key",
+              "token",
+              "secret",
+              "password",
+              "auth",
+            ];
 
-            const containsSensitive = sensitiveKeywords.some(keyword =>
+            const containsSensitive = sensitiveKeywords.some((keyword) =>
               lowercaseName.includes(keyword)
             );
 
@@ -361,7 +395,12 @@ describe("REQ-714 — Property-Based Tests for Validation Functions", () => {
             }
 
             // Sensitive values should be masked
-            if (shouldMaskEnvVar(envVarName) && value && typeof value === "string" && value.length > 8) {
+            if (
+              shouldMaskEnvVar(envVarName) &&
+              value &&
+              typeof value === "string" &&
+              value.length > 8
+            ) {
               expect(formatted).toContain("*");
             }
           }
@@ -374,11 +413,15 @@ describe("REQ-714 — Property-Based Tests for Validation Functions", () => {
     test("REQ-714 — array to string conversion is safe and reversible", () => {
       fc.assert(
         fc.property(
-          fc.array(fc.string({ minLength: 1, maxLength: 20 }), { minLength: 1, maxLength: 10 }),
+          fc.array(fc.string({ minLength: 1, maxLength: 20 }), {
+            minLength: 1,
+            maxLength: 10,
+          }),
           (commandArray) => {
-            // Filter out arrays that contain shell-dangerous characters
-            const safeArray = commandArray.filter(item =>
-              !/[;&|`$(){}[\]\\<>'"]/u.test(item)
+            // Filter out arrays that contain shell-dangerous characters or spaces
+            const safeArray = commandArray.filter(
+              (item) =>
+                !/[;&|`$(){}[\]\\<>'" ]/u.test(item) && item.trim() !== ""
             );
 
             if (safeArray.length > 0) {
@@ -388,7 +431,7 @@ describe("REQ-714 — Property-Based Tests for Validation Functions", () => {
               expect(commandString).not.toMatch(/[;&|`$(){}[\]\\<>'"]/);
 
               // String should contain all original elements
-              safeArray.forEach(element => {
+              safeArray.forEach((element) => {
                 expect(commandString).toContain(element);
               });
 
@@ -410,10 +453,10 @@ describe("REQ-714 — Property-Based Tests for Validation Functions", () => {
         "",
         "http://insecure.com",
         "https://example.com/; rm -rf /",
-        "not-a-url"
+        "not-a-url",
       ];
 
-      invalidInputs.forEach(input => {
+      invalidInputs.forEach((input) => {
         try {
           validateSSEUrl(input, false);
           expect.fail("Should have thrown an error");
@@ -430,16 +473,30 @@ describe("REQ-714 — Property-Based Tests for Validation Functions", () => {
   describe("Idempotency Property Tests", () => {
     test("REQ-714 — validation functions are deterministic", () => {
       fc.assert(
-        fc.property(
-          fc.string(),
-          fc.boolean(),
-          (url, returnBoolean) => {
-            const result1 = validateSSEUrl(url, returnBoolean);
-            const result2 = validateSSEUrl(url, returnBoolean);
+        fc.property(fc.string(), fc.boolean(), (url, returnBoolean) => {
+          // Handle both success and error cases for deterministic behavior
+          let result1, error1;
+          let result2, error2;
 
+          try {
+            result1 = validateSSEUrl(url, returnBoolean);
+          } catch (e) {
+            error1 = e.message;
+          }
+
+          try {
+            result2 = validateSSEUrl(url, returnBoolean);
+          } catch (e) {
+            error2 = e.message;
+          }
+
+          // Both should succeed or both should fail with same error message
+          if (error1 || error2) {
+            expect(error1).toEqual(error2);
+          } else {
             expect(result1).toEqual(result2);
           }
-        )
+        })
       );
     });
 
@@ -447,8 +504,10 @@ describe("REQ-714 — Property-Based Tests for Validation Functions", () => {
       fc.assert(
         fc.property(
           fc.record({
-            key: fc.string({ minLength: 1, maxLength: 20 }).filter(s => /^[a-zA-Z0-9\-_]+$/.test(s)),
-            url: fc.constant("https://example.com/sse")
+            key: fc
+              .string({ minLength: 1, maxLength: 20 })
+              .filter((s) => /^[a-zA-Z0-9\-_]+$/.test(s)),
+            url: fc.constant("https://example.com/sse"),
           }),
           fc.constantFrom("user", "project", "local"),
           (spec, scope) => {

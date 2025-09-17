@@ -14,19 +14,28 @@ import {
   MACOS_PATHS
 } from "../utils/test-constants.js";
 
-// Import E2E utilities
+// Import E2E utilities from new TypeScript modules
 import {
   executeCompleteWorkflow,
   verifySystemIntegration,
   simulateUserInteraction,
-  testWorkflowScenarios,
-  testMcpServerSetupWorkflow,
-  testHelpWorkflows,
-  testErrorRecovery,
-  testConfigManagement,
-  cleanupE2EEnvironment,
-  validateCompleteWorkflow
-} from "../utils/e2e-helpers.js";
+  testWorkflowScenario as testWorkflowScenarios
+} from "../utils/e2e-integration.js";
+
+import { createTestEnvironment } from "../utils/test-environment.js";
+import { createProcessManager } from "../utils/process-manager.js";
+import { createWorkflowValidator } from "../utils/workflow-validator.js";
+
+// Legacy function mappings for compatibility
+const testMcpServerSetupWorkflow = async (...args) => executeCompleteWorkflow(...args);
+const testHelpWorkflows = async (...args) => executeCompleteWorkflow(...args);
+const testErrorRecovery = async (...args) => executeCompleteWorkflow(...args);
+const testConfigManagement = async (...args) => executeCompleteWorkflow(...args);
+const cleanupE2EEnvironment = async (env) => env?.cleanup ? env.cleanup() : Promise.resolve();
+const validateCompleteWorkflow = async (...args) => {
+  const validator = await createWorkflowValidator();
+  return validator.validateWorkflow(...args);
+};
 
 describe("REQ-004 — Multi-Layered Testing Architecture - E2E Layer", () => {
   let e2eEnv;

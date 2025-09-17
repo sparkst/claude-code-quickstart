@@ -29,9 +29,10 @@ const MAX_CYCLOMATIC_COMPLEXITY = 3;
 const CLI_PATH = path.resolve("./bin/cli.js");
 const TEST_TIMEOUT_MS = 10000;
 
-describe("REQ-200 — E2E Infrastructure TypeScript Migration", () => {
-  let testEnvironment: TestEnvironment;
+// Global test environment available to all describe blocks
+let testEnvironment: TestEnvironment;
 
+describe("REQ-200 — E2E Infrastructure TypeScript Migration", () => {
   beforeEach(async () => {
     // This SHOULD create a properly typed test environment but WILL FAIL initially
     testEnvironment = await createTestEnvironment();
@@ -194,6 +195,15 @@ describe("REQ-202 — Real CLI Process Execution", () => {
   beforeEach(async () => {
     cliExecutor = await createCliExecutor();
     processManager = await createProcessManager();
+    if (!testEnvironment) {
+      testEnvironment = await createTestEnvironment();
+    }
+  });
+
+  afterEach(async () => {
+    if (testEnvironment) {
+      await testEnvironment.cleanup();
+    }
   });
 
   test("REQ-202 — CLI executor uses real subprocess execution, not simulation", async () => {
@@ -273,6 +283,15 @@ describe("REQ-203 — Security Hardening", () => {
 
   beforeEach(async () => {
     securityValidator = await createSecurityValidator();
+    if (!testEnvironment) {
+      testEnvironment = await createTestEnvironment();
+    }
+  });
+
+  afterEach(async () => {
+    if (testEnvironment) {
+      await testEnvironment.cleanup();
+    }
   });
 
   test("REQ-203 — command injection prevention in CLI execution", async () => {
@@ -445,6 +464,15 @@ describe("REQ-205 — Error Handling and Resource Management", () => {
 
   beforeEach(async () => {
     processManager = await createProcessManager();
+    if (!testEnvironment) {
+      testEnvironment = await createTestEnvironment();
+    }
+  });
+
+  afterEach(async () => {
+    if (testEnvironment) {
+      await testEnvironment.cleanup();
+    }
   });
 
   test("REQ-205 — process cleanup prevents hanging processes in test environment", async () => {

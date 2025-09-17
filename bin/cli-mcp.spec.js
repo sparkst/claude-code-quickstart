@@ -1034,11 +1034,11 @@ describe("REQ-400 — Security - URL Parameter Validation (P1 Critical)", () => 
 
     // These tests will fail because domain validation doesn't exist
     validUrls.forEach((url) => {
-      expect(validateSSEUrl(url)).toBe(true); // Function doesn't exist
+      expect(validateSSEUrl(url, true)).toBe(true); // Function doesn't exist
     });
 
     invalidUrls.forEach((url) => {
-      expect(validateSSEUrl(url)).toBe(false); // Function doesn't exist
+      expect(validateSSEUrl(url, true)).toBe(false); // Function doesn't exist
     });
   });
 
@@ -1052,7 +1052,7 @@ describe("REQ-400 — Security - URL Parameter Validation (P1 Critical)", () => 
 
     // This test will fail because path traversal detection doesn't exist
     maliciousUrls.forEach((url) => {
-      expect(validateSSEUrl(url)).toBe(false); // Function doesn't exist
+      expect(validateSSEUrl(url, true)).toBe(false); // Function doesn't exist
     });
   });
 

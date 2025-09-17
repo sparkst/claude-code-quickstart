@@ -1,19 +1,19 @@
 /**
  * Process Management Module - Resource cleanup and lifecycle management
  * REQ-205: Resource Management - Proper cleanup and error handling
+ * REQ-802: E2E Test Infrastructure Fixes
  */
 
+import { spawn, type ChildProcess } from 'child_process';
 import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
 import type {
   ProcessInfo,
   ProcessId,
-  TestEnvironmentId,
-  E2EEnvironment,
-  CleanupResult,
-  E2EError
-} from './types.js';
+  ProcessManager,
+  ExecutionOptions
+} from './e2e-types.js';
 
 // Resource tracking
 const activeProcesses = new Map<ProcessId, ProcessInfo>();
@@ -413,3 +413,173 @@ process.on('SIGTERM', async () => {
   await performCompleteCleanup();
   process.exit(0);
 });
+
+/**
+ * ProcessManager implementation for E2E testing
+ * REQ-802: Fix E2E test infrastructure logic
+ */
+class ProcessManagerImpl implements ProcessManager {
+  private processes = new Map<ProcessId, ChildProcess>();
+
+  async spawn(
+    command: string,
+    args: readonly string[],
+    options: ExecutionOptions = {}
+  ): Promise<ProcessInfo> {
+    const { timeout = 30000, cwd = process.cwd(), env = {} } = options;
+
+    return new Promise((resolve, reject) => {
+      const child = spawn(command, [...args], {
+        cwd,
+        env: { ...process.env, ...env },
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+
+      if (!child.pid) {
+        reject(new Error('Failed to spawn process'));
+        return;
+      }
+
+      const pid = child.pid;
+      const startTime = new Date();
+      this.processes.set(pid, child);
+
+      const info: ProcessInfo = {
+        pid,
+        command,
+        args,
+        startTime,
+        status: 'running'
+      };
+
+      registerProcess(info);
+
+      // Set up timeout if specified
+      let timeoutId: NodeJS.Timeout | undefined;
+      if (timeout > 0) {
+        timeoutId = setTimeout(() => {
+          child.kill('SIGTERM');
+          info.status = 'timeout';
+        }, timeout);
+      }
+
+      child.on('exit', (code) => {
+        if (timeoutId) clearTimeout(timeoutId);
+        info.status = code === 0 ? 'completed' : 'failed';
+        this.processes.delete(pid);
+        unregisterProcess(pid);
+      });
+
+      child.on('error', (error) => {
+        if (timeoutId) clearTimeout(timeoutId);
+        info.status = 'failed';
+        this.processes.delete(pid);
+        unregisterProcess(pid);
+        reject(error);
+      });
+
+      resolve(info);
+    });
+  }
+
+  async kill(processId: ProcessId): Promise<void> {
+    const child = this.processes.get(processId);
+    if (!child) {
+      return; // Process not found or already terminated
+    }
+
+    return new Promise((resolve) => {
+      child.on('exit', () => {
+        this.processes.delete(processId);
+        unregisterProcess(processId);
+        resolve();
+      });
+
+      // Try graceful termination first
+      child.kill('SIGTERM');
+
+      // Force kill after 2 seconds if still running
+      setTimeout(() => {
+        if (this.processes.has(processId)) {
+          child.kill('SIGKILL');
+        }
+      }, 2000);
+    });
+  }
+
+  async killAll(): Promise<void> {
+    const killPromises = Array.from(this.processes.keys()).map(pid =>
+      this.kill(pid)
+    );
+    await Promise.all(killPromises);
+  }
+
+  getActiveProcesses(): ProcessId[] {
+    return Array.from(this.processes.keys());
+  }
+
+  async isProcessActive(pid: ProcessId): Promise<boolean> {
+    const child = this.processes.get(pid);
+    if (!child) {
+      return false;
+    }
+
+    // Check if process is actually running
+    try {
+      process.kill(pid, 0); // Signal 0 checks if process exists
+      return true;
+    } catch {
+      // Process doesn't exist, clean up our tracking
+      this.processes.delete(pid);
+      unregisterProcess(pid);
+      return false;
+    }
+  }
+
+  async handleError(errorType: string): Promise<{
+    recovered: boolean;
+    cleanup: boolean;
+    resourcesReleased: boolean;
+  }> {
+    let recovered = false;
+    let cleanup = false;
+    let resourcesReleased = false;
+
+    try {
+      switch (errorType) {
+        case 'permission_denied':
+        case 'disk_full':
+        case 'network_timeout':
+        case 'invalid_config':
+          // Clean up all processes and resources
+          await this.killAll();
+          await performCompleteCleanup();
+          cleanup = true;
+          resourcesReleased = true;
+          recovered = true;
+          break;
+
+        default:
+          // Generic error handling
+          await this.killAll();
+          await performCompleteCleanup();
+          cleanup = true;
+          resourcesReleased = true;
+          recovered = true;
+      }
+    } catch (error) {
+      // Error handling failed, but we tried
+      recovered = false;
+    }
+
+    return { recovered, cleanup, resourcesReleased };
+  }
+}
+
+/**
+ * Factory function to create ProcessManager instance
+ * REQ-802: Missing createProcessManager function
+ */
+export async function createProcessManager(): Promise<ProcessManager> {
+  return new ProcessManagerImpl();
+}

@@ -4,13 +4,10 @@
  */
 
 export interface ExecutionResult {
+  code: number;
   stdout: string;
   stderr: string;
-  exitCode: number;
-  command: string;
-  args: readonly string[];
   duration: number;
-  timestamp: Date;
 }
 
 export interface ExecutionOptions {
@@ -22,20 +19,33 @@ export interface ExecutionOptions {
 }
 
 export interface CliExecutor {
-  execute(command: string, args: readonly string[], options?: ExecutionOptions): Promise<ExecutionResult>;
+  execute(args: readonly string[], options?: ExecutionOptions): Promise<ExecutionResult>;
+  spawn(command: string, args: readonly string[], options?: ExecutionOptions): Promise<ExecutionResult>;
+  kill(pid: number): Promise<void>;
   cleanup(): Promise<void>;
 }
 
 export interface TestEnvironment {
-  tempDir: string;
+  setup(): Promise<void>;
+  teardown(): Promise<void>;
+  createTempDir(baseName?: string): Promise<string>;
   cleanup(): Promise<void>;
-  createFile(relativePath: string, content: string): Promise<string>;
-  createDirectory(relativePath: string): Promise<string>;
+  createTempFile(fileName: string): Promise<string>;
+  acquireResource(resourceId: string): Promise<any>;
+  releaseResource(resourceId: string): Promise<void>;
+  isResourceActive(resourceId: string): Promise<boolean>;
 }
 
 export interface WorkflowValidator {
-  validateStep(step: WorkflowStep): Promise<boolean>;
-  validateComplete(workflow: WorkflowStep[]): Promise<boolean>;
+  validateWorkflow(workflow: WorkflowStep[]): Promise<ValidationResult>;
+  validateSteps(steps: WorkflowStep[]): Promise<ValidationResult>;
+  validateExpectations(result: ExecutionResult, expected: any): Promise<ValidationResult>;
+}
+
+export interface ValidationResult {
+  success: boolean;
+  errors: string[];
+  warnings: string[];
 }
 
 export interface UserSimulator {
@@ -44,17 +54,13 @@ export interface UserSimulator {
   simulateInteraction(action: UserAction): Promise<void>;
 }
 
-export interface SecurityValidator {
-  validateCommand(command: string, args: readonly string[]): SecurityValidationResult;
-  validatePath(path: string): boolean;
-  validateUrl(url: string): boolean;
-}
-
 export interface ProcessManager {
   spawn(command: string, args: readonly string[], options?: ExecutionOptions): Promise<ProcessInfo>;
   kill(processId: ProcessId): Promise<void>;
   killAll(): Promise<void>;
-  getRunningProcesses(): ProcessInfo[];
+  getActiveProcesses(): ProcessId[];
+  isProcessActive(pid: ProcessId): Promise<boolean>;
+  handleError(errorType: string): Promise<{ recovered: boolean; cleanup: boolean; resourcesReleased: boolean }>;
 }
 
 export interface WorkflowStep {
@@ -79,10 +85,21 @@ export interface UserAction {
   timeout?: number;
 }
 
-export interface SecurityValidationResult {
-  isValid: boolean;
-  violations: string[];
-  severity: 'low' | 'medium' | 'high' | 'critical';
+// REQ-800: Security Validator Types for comprehensive security checking
+export type ThreatLevel = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
+export interface SecurityCheckResult {
+  safe: boolean;
+  threatLevel: ThreatLevel;
+  threats: string[];
+  reason: string;
+}
+
+export interface SecurityValidator {
+  validateCommand(command: readonly string[]): Promise<SecurityCheckResult>;
+  validatePath(path: string): Promise<SecurityCheckResult>;
+  validateEnvironment(env: Record<string, string>): Promise<SecurityCheckResult>;
+  validateInput(input: any): Promise<SecurityCheckResult>;
 }
 
 export type ProcessId = number;

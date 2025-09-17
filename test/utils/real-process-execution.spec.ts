@@ -16,13 +16,23 @@ let simulateFirstTimeUser: any; // This should NOT exist in the real implementat
 
 try {
   const realModule = await import("./process-manager.js");
-  executeRealCliCommand = realModule.executeRealCliCommand;
-  createRealProcessManager = realModule.createRealProcessManager;
+  createRealProcessManager = realModule.createProcessManager;
+
+  // Import real CLI execution functions
+  const cliModule = await import("./cli-executor.js");
+  executeRealCliCommand = cliModule.executeCliCommand;
 
   // These simulation functions should NOT exist after REQ-503 implementation
-  const legacyModule = await import("./e2e-helpers.js");
-  simulateCliExecution = legacyModule.simulateCliExecution;
-  simulateFirstTimeUser = legacyModule.simulateFirstTimeUser;
+  // If e2e-helpers.js exists, we haven't completed the migration
+  try {
+    const legacyModule = await import("./e2e-helpers.js");
+    simulateCliExecution = legacyModule.simulateCliExecution;
+    simulateFirstTimeUser = legacyModule.simulateFirstTimeUser;
+  } catch {
+    // Good! Legacy simulation file has been removed
+    simulateCliExecution = undefined;
+    simulateFirstTimeUser = undefined;
+  }
 } catch (error) {
   // Functions don't exist yet - this is expected for TDD
   executeRealCliCommand = async () => {

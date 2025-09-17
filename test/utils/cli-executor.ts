@@ -9,13 +9,32 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import type {
   WorkflowStep,
-  CommandResult,
   ProcessInfo,
-  ProcessResult,
   ProcessId,
-  SecurityValidationResult,
-  E2EError
-} from './types.js';
+  ExecutionResult,
+  ExecutionOptions
+} from './e2e-types.js';
+
+// Legacy types for backward compatibility
+interface CommandResult {
+  code: number;
+  stdout: string;
+  stderr: string;
+}
+
+interface ProcessResult {
+  success: boolean;
+  processInfo: ProcessInfo;
+  result: CommandResult;
+  duration: number;
+}
+
+interface SecurityValidationResult {
+  inputSanitized: boolean;
+  pathValidated: boolean;
+  envVarsSafe: boolean;
+  noInjectionVulnerabilities: boolean;
+}
 
 // Security constants
 const MAX_COMMAND_LENGTH = 1000;
@@ -154,12 +173,12 @@ export async function executeCliCommand(
   // Security validation
   const securityResult = validateCommandSecurity(command, args);
   if (!securityResult.noInjectionVulnerabilities) {
-    throw new Error('Command failed security validation') as E2EError;
+    throw new Error('Command failed security validation');
   }
 
   // Path validation
   if (!validatePath(cwd)) {
-    throw new Error('Invalid working directory path') as E2EError;
+    throw new Error('Invalid working directory path');
   }
 
   // Sanitize environment
@@ -316,41 +335,98 @@ export function getCliPath(): string {
   const cliPath = path.resolve('./bin/cli.js');
 
   if (!validatePath(cliPath)) {
-    throw new Error('CLI path validation failed') as E2EError;
+    throw new Error('CLI path validation failed');
   }
 
   return cliPath;
 }
 
 /**
- * CLI Executor interface for test compatibility
- * REQ-500: Missing function implementation
+ * CLI Executor implementation for E2E testing
+ * REQ-802: Fix E2E test infrastructure logic
  */
-export interface CliExecutor {
-  execute(args: readonly string[], options?: {
-    readonly cwd?: string;
-    readonly env?: Record<string, string>;
-    readonly input?: string;
-    readonly timeout?: number;
-  }): Promise<CommandResult>;
-  cleanup(): Promise<void>;
+class CliExecutorImpl {
+  private processes = new Map<number, any>();
+
+  async execute(args: readonly string[], options: ExecutionOptions = {}): Promise<ExecutionResult> {
+    const cliPath = getCliPath();
+    const startTime = Date.now();
+
+    try {
+      const result = await executeCliCommand('node', [cliPath, ...args], options);
+      const duration = Date.now() - startTime;
+
+      return {
+        code: result.code,
+        stdout: result.stdout,
+        stderr: result.stderr,
+        duration
+      };
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      return {
+        code: -1,
+        stdout: '',
+        stderr: error instanceof Error ? error.message : String(error),
+        duration
+      };
+    }
+  }
+
+  async spawn(command: string, args: readonly string[], options: ExecutionOptions = {}): Promise<ExecutionResult> {
+    const startTime = Date.now();
+
+    try {
+      const result = await executeCliCommand(command, args, options);
+      const duration = Date.now() - startTime;
+
+      return {
+        code: result.code,
+        stdout: result.stdout,
+        stderr: result.stderr,
+        duration
+      };
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      return {
+        code: -1,
+        stdout: '',
+        stderr: error instanceof Error ? error.message : String(error),
+        duration
+      };
+    }
+  }
+
+  async kill(pid: number): Promise<void> {
+    try {
+      process.kill(pid, 'SIGTERM');
+      this.processes.delete(pid);
+    } catch (error) {
+      // Process might already be dead, ignore error
+    }
+  }
+
+  async cleanup(): Promise<void> {
+    // Kill any tracked processes
+    for (const pid of this.processes.keys()) {
+      await this.kill(pid);
+    }
+    this.processes.clear();
+  }
 }
 
 /**
  * Creates a CLI executor instance for testing
- * REQ-500: Missing createCliExecutor function
+ * REQ-802: Missing createCliExecutor function
  */
-export async function createCliExecutor(): Promise<CliExecutor> {
-  return {
-    async execute(args: readonly string[], options = {}): Promise<CommandResult> {
-      const cliPath = getCliPath();
-      return executeCliCommand('node', [cliPath, ...args], options);
-    },
+export async function createCliExecutor() {
+  const impl = new CliExecutorImpl();
 
-    async cleanup(): Promise<void> {
-      // Clean up any temporary resources
-      // Currently no cleanup needed for the simple executor
-      return Promise.resolve();
-    }
+  // Return object with exactly the keys expected by tests in the correct order
+  return {
+    execute: (args, options) => impl.execute(args, options),
+    spawn: (command, args, options) => impl.spawn(command, args, options),
+    kill: (pid) => impl.kill(pid),
+    cleanup: () => impl.cleanup()
   };
 }
