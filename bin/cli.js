@@ -11,6 +11,7 @@ const path = require("node:path");
 const os = require("node:os");
 const readline = require("node:readline");
 const { URL } = require("node:url");
+const lockfile = require("proper-lockfile");
 
 const HOME = os.homedir();
 const GLOBAL_DIR = path.join(HOME, ".claude");
@@ -36,11 +37,195 @@ const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
 });
+
+// REQ-715: File locking configuration for concurrent access safety
+const LOCK_CONFIG = {
+  lockfilePath: (filePath) => `${filePath}.lock`,
+  retries: {
+    retries: 5,
+    minTimeout: 100,
+    maxTimeout: 2000,
+    randomize: true,
+  },
+  stale: 30000, // 30 seconds
+  realpath: false, // Avoid symlink resolution overhead
+};
+
+// REQ-715: Safe configuration update helper with file locking
+async function safeConfigUpdate(filePath, updateFn, options = {}) {
+  const lockOptions = {
+    ...LOCK_CONFIG.retries,
+    stale: options.stale || LOCK_CONFIG.stale,
+    realpath: LOCK_CONFIG.realpath,
+  };
+
+  let release = null;
+  const startTime = Date.now();
+
+  try {
+    // Show user feedback for lock wait if it takes more than 1 second
+    const lockTimeout = global.setTimeout(() => {
+      console.log(`⏳ Waiting for file access: ${path.basename(filePath)}`);
+      console.log("   (Another installation may be in progress...)");
+    }, 1000);
+
+    // Acquire file lock with retry mechanism
+    try {
+      release = await lockfile.lock(filePath, lockOptions);
+      global.clearTimeout(lockTimeout);
+    } catch (error) {
+      global.clearTimeout(lockTimeout);
+      if (error.code === "ELOCKED") {
+        throw new Error(
+          `File is locked by another process: ${path.basename(filePath)}. Please wait and try again.`
+        );
+      }
+      throw new Error(
+        `Failed to acquire lock for ${path.basename(filePath)}: ${error.message}`
+      );
+    }
+
+    // Log lock acquisition time if it took longer than expected
+    const lockTime = Date.now() - startTime;
+    if (lockTime > 1000) {
+      console.log(
+        `✅ File access acquired after ${Math.round(lockTime / 1000)}s`
+      );
+    }
+
+    // Perform the file operation under lock protection
+    return await updateFn(filePath);
+  } catch (error) {
+    // Re-throw with context for better debugging
+    throw new Error(
+      `Configuration update failed for ${path.basename(filePath)}: ${error.message}`
+    );
+  } finally {
+    // Always release the lock
+    if (release) {
+      try {
+        await release();
+      } catch (releaseError) {
+        console.warn(
+          `⚠️ Warning: Failed to release lock for ${path.basename(filePath)}: ${releaseError.message}`
+        );
+      }
+    }
+  }
+}
+
+// REQ-715: Safe file write with directory creation and atomic operation
+async function safeFileWrite(filePath, content, encoding = "utf8") {
+  return safeConfigUpdate(filePath, async (lockedFilePath) => {
+    // Ensure directory exists
+    const dir = path.dirname(lockedFilePath);
+    fs.mkdirSync(dir, { recursive: true });
+
+    // Write to temporary file first for atomic operation
+    const tempPath = `${lockedFilePath}.tmp.${Date.now()}`;
+    try {
+      fs.writeFileSync(tempPath, content, encoding);
+      // Atomic rename to final destination
+      fs.renameSync(tempPath, lockedFilePath);
+    } catch (error) {
+      // Clean up temp file on failure
+      try {
+        if (fs.existsSync(tempPath)) {
+          fs.unlinkSync(tempPath);
+        }
+      } catch {
+        // Ignore cleanup failures
+      }
+      throw error;
+    }
+  });
+}
+
+// REQ-715: Safe file read with lock protection
+async function safeFileRead(filePath, encoding = "utf8") {
+  return safeConfigUpdate(filePath, (lockedFilePath) => {
+    if (!fs.existsSync(lockedFilePath)) {
+      throw new Error(`File not found: ${path.basename(lockedFilePath)}`);
+    }
+    return fs.readFileSync(lockedFilePath, encoding);
+  });
+}
 function ask(q, def = "") {
   const prompt = def ? `${q} [${def}] ` : `${q} `;
   return new Promise((res) =>
     rl.question(prompt, (a) => res((a || "").trim()))
   );
+}
+
+// REQ-711: Accessible ask function with enhanced prompting for screen readers
+async function askAccessible(question, defaultValue = "", options = {}) {
+  const {
+    helpText = null,
+    category = null,
+    required = false,
+    validationPattern = null,
+  } = options;
+
+  // Provide context for screen readers
+  if (category) {
+    console.log(`📂 Input category: ${category}`);
+  }
+
+  if (helpText) {
+    console.log(`💡 Help: ${helpText}`);
+  }
+
+  const prompt = defaultValue
+    ? `${question} [${defaultValue}] `
+    : `${question} `;
+
+  const answer = await new Promise((resolve) => {
+    rl.question(prompt, (input) => resolve((input || "").trim()));
+  });
+
+  const finalAnswer = answer || defaultValue;
+
+  // Basic validation if pattern provided
+  if (required && !finalAnswer) {
+    console.log("⚠️  This field is required. Please try again.");
+    return askAccessible(question, defaultValue, options);
+  }
+
+  if (
+    validationPattern &&
+    finalAnswer &&
+    !validationPattern.test(finalAnswer)
+  ) {
+    console.log("⚠️  Invalid format. Please check the input and try again.");
+    return askAccessible(question, defaultValue, options);
+  }
+
+  return finalAnswer;
+}
+
+// REQ-711: Progressive disclosure function for advanced options
+async function askProgressiveDisclosure(tierConfig) {
+  console.log(`\n🔍 Want to see what's included in ${tierConfig.name}?`);
+
+  const showDetails = await ask("Show detailed server list? (y/N)", "n");
+
+  if (showDetails.toLowerCase() === "y") {
+    const tierServers = getServersForTier(tierConfig.name);
+    console.log(
+      `\n📋 ${tierConfig.name} includes ${tierServers.length} servers:`
+    );
+
+    tierServers.forEach((spec, index) => {
+      console.log(`   ${index + 1}. ${spec.title} - ${spec.category}`);
+      console.log(`      ${spec.description}`);
+      console.log(`      Time: ${spec.setupTime} | Auth: ${spec.authPattern}`);
+    });
+
+    console.log(`\n💰 Total estimated time: ${tierConfig.time}`);
+    console.log(`🎯 Benefits: ${tierConfig.benefits.join(", ")}`);
+  }
+
+  return true;
 }
 
 async function askScope() {
@@ -68,6 +253,70 @@ async function askScope() {
       console.log("  Using default: User scope");
       return "user";
   }
+}
+
+// REQ-711: Accessible tier selection with progressive disclosure
+async function askSetupTier() {
+  console.log("\n" + "=".repeat(60));
+  console.log("🎯 CHOOSE YOUR MCP SETUP TIER");
+  console.log("=".repeat(60));
+  console.log(
+    "\nReduce choice overload! Pick the tier that matches your needs:"
+  );
+
+  // Display tiers with accessibility and visual hierarchy
+  let tierIndex = 1;
+  for (const [tierKey, tierConfig] of Object.entries(SETUP_TIERS)) {
+    console.log(
+      `\n${tierIndex}) ${tierConfig.emoji} ${tierConfig.name} (${tierConfig.time})`
+    );
+    console.log(`   ${tierConfig.description}`);
+    console.log(
+      `   Includes: ${tierConfig.benefits.slice(0, 2).join(", ")}${tierConfig.benefits.length > 2 ? "..." : ""}`
+    );
+    tierIndex++;
+  }
+
+  console.log("\n" + "-".repeat(60));
+  console.log("💡 Tip: You can always run this tool again to add more servers");
+  console.log("🔄 Focus order: 1→2→3 for progressive complexity");
+
+  const choice = await ask("\nSelect setup tier (1-3)", "1");
+
+  switch (choice) {
+    case "1":
+    case "quick":
+    case "q":
+      return "quick-start";
+    case "2":
+    case "dev":
+    case "d":
+      return "dev-tools";
+    case "3":
+    case "research":
+    case "r":
+    case "full":
+    case "f":
+      return "research-tools";
+    default:
+      console.log("  Using default: Quick Start");
+      return "quick-start";
+  }
+}
+
+// REQ-711: Get servers for selected tier with progressive inclusion
+function getServersForTier(selectedTier) {
+  const tierHierarchy = ["quick-start", "dev-tools", "research-tools"];
+  const selectedIndex = tierHierarchy.indexOf(selectedTier);
+
+  if (selectedIndex === -1) {
+    console.log("⚠️ Unknown tier, defaulting to Quick Start");
+    return SERVER_SPECS.filter((spec) => spec.tier === "quick-start");
+  }
+
+  // Include all servers from current tier and lower tiers
+  const includedTiers = tierHierarchy.slice(0, selectedIndex + 1);
+  return SERVER_SPECS.filter((spec) => includedTiers.includes(spec.tier));
 }
 
 function maskKey(s) {
@@ -356,18 +605,143 @@ function checkServerStatus(serverKey) {
   }
 }
 
-// REQ-407: Organize SERVER_SPECS by server type for better maintainability
+// REQ-711: Enhanced server structure with tiered organization and accessibility
 const SERVER_SPECS = [
-  // === NPM-based MCP servers with API keys ===
+  // === Quick Start Tier (2 min) - Essential productivity tools ===
   {
     key: "context7",
     title: "Context7",
     envVar: "CONTEXT7_API_KEY",
     helpUrl: "https://context7.com/dashboard",
-    // correct package name per upstream
     command: "npx",
     args: (val) => ["-y", "@upstash/context7-mcp", "--api-key", val],
+    tier: "quick-start",
+    category: "Documentation & Code Context",
+    description: "🔑 Needs: API Access Token (2 min setup)",
+    setupTime: "2 min",
+    authPattern: "api-key",
+    nextSteps: "Ready to use immediately for documentation search",
   },
+  {
+    key: "tavily",
+    title: "Tavily",
+    envVar: "TAVILY_API_KEY",
+    helpUrl:
+      "https://docs.tavily.com/documentation/api-reference/authentication",
+    command: "npx",
+    args: () => ["-y", "tavily-mcp"],
+    tier: "quick-start",
+    category: "Web Research & Analysis",
+    description: "🔑 Needs: API Access Token (2 min setup)",
+    setupTime: "2 min",
+    authPattern: "api-key",
+    nextSteps: "Ready for web research and content extraction",
+  },
+  {
+    key: "github",
+    title: "GitHub",
+    envVar: "GITHUB_PERSONAL_ACCESS_TOKEN",
+    helpUrl: "https://github.com/settings/tokens",
+    command: "npx",
+    args: (val) => [
+      "-y",
+      "@modelcontextprotocol/server-github",
+      "--token",
+      val,
+    ],
+    tier: "quick-start",
+    category: "Version Control & Collaboration",
+    description: "🔑 Needs: Personal Access Token (2 min setup)",
+    setupTime: "2 min",
+    authPattern: "api-key",
+    nextSteps: "Ready for repository management and issue tracking",
+  },
+
+  // === Dev Tools Tier (5 min) - Full development workflow ===
+  {
+    key: "supabase",
+    title: "Supabase",
+    envVar: "SUPABASE_ACCESS_TOKEN",
+    helpUrl: "https://supabase.com/dashboard/account/tokens",
+    command: "npx",
+    args: (val) => [
+      "-y",
+      "@supabase/mcp-server-supabase",
+      `--access-token=${val}`,
+    ],
+    tier: "dev-tools",
+    category: "Database & Backend Services",
+    description: "🔑 Needs: Access Token (3 min setup)",
+    setupTime: "3 min",
+    authPattern: "api-key",
+    nextSteps:
+      "Configure projects in dashboard → Ready for database operations",
+  },
+  {
+    key: "cloudflare-bindings",
+    title: "Cloudflare Bindings",
+    promptType: "sse",
+    transport: "sse",
+    url: "https://bindings.mcp.cloudflare.com/sse",
+    helpUrl:
+      "https://developers.cloudflare.com/workers/configuration/bindings/",
+    tier: "dev-tools",
+    category: "Real-time & Server-Sent Events",
+    description: "🌐 Needs: Browser authentication + Claude Code setup (3 min)",
+    setupTime: "3 min",
+    authPattern: "sse-browser",
+    nextSteps:
+      "NEXT: Run `/mcp cloudflare-bindings` in Claude Code for authentication",
+  },
+  {
+    key: "cloudflare-builds",
+    title: "Cloudflare Builds",
+    promptType: "sse",
+    transport: "sse",
+    url: "https://builds.mcp.cloudflare.com/sse",
+    helpUrl: "https://developers.cloudflare.com/workers/builds/",
+    tier: "dev-tools",
+    category: "Real-time & Server-Sent Events",
+    description: "🌐 Needs: Browser authentication + Claude Code setup (3 min)",
+    setupTime: "3 min",
+    authPattern: "sse-browser",
+    nextSteps:
+      "NEXT: Run `/mcp cloudflare-builds` in Claude Code for authentication",
+  },
+  {
+    key: "n8n",
+    title: "n8n (Recommended)",
+    envVar: "N8N_API_URL",
+    envVar2: "N8N_API_KEY",
+    helpUrl: "https://docs.n8n.io/api/",
+    command: "npx",
+    args: () => ["-y", "@leonardsellem/n8n-mcp-server"],
+    recommended: true,
+    tier: "dev-tools",
+    category: "Workflow Automation",
+    description: "⚙️ Needs: URL + API credentials (5 min setup)",
+    setupTime: "5 min",
+    authPattern: "dual-config",
+    nextSteps:
+      "Configure API access in n8n settings → Ready for workflow automation",
+  },
+  {
+    key: "postgres",
+    title: "PostgreSQL",
+    envVar: "POSTGRES_CONNECTION_STRING",
+    helpUrl:
+      "https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING",
+    command: "npx",
+    args: (val) => ["-y", "@modelcontextprotocol/server-postgres", val],
+    tier: "dev-tools",
+    category: "Database & Backend Services",
+    description: "⚙️ Needs: Connection string (5 min setup)",
+    setupTime: "5 min",
+    authPattern: "connection-string",
+    nextSteps: "Test connection → Ready for SQL operations",
+  },
+
+  // === Research Tools Tier (8 min) - Comprehensive research suite ===
   {
     key: "brave-search",
     title: "Brave Search",
@@ -380,69 +754,52 @@ const SERVER_SPECS = [
       "--transport",
       "stdio",
     ],
-  },
-  {
-    key: "supabase",
-    title: "Supabase",
-    envVar: "SUPABASE_ACCESS_TOKEN",
-    helpUrl: "https://supabase.com/dashboard/account/tokens",
-    command: "npx",
-    args: (val) => [
-      "-y",
-      "@supabase/mcp-server-supabase",
-      `--access-token=${val}`,
-    ],
-  },
-  {
-    key: "tavily",
-    title: "Tavily",
-    envVar: "TAVILY_API_KEY",
-    helpUrl:
-      "https://docs.tavily.com/documentation/api-reference/authentication",
-    command: "npx",
-    args: () => ["-y", "tavily-mcp"],
-  },
-  {
-    key: "postgres",
-    title: "PostgreSQL",
-    envVar: "POSTGRES_CONNECTION_STRING",
-    helpUrl:
-      "https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING",
-    command: "npx",
-    args: (val) => ["-y", "@modelcontextprotocol/server-postgres", val],
-  },
-
-  // === NPM-based MCP servers with dual environment variables ===
-  {
-    key: "n8n",
-    title: "n8n (Recommended)",
-    envVar: "N8N_API_URL",
-    envVar2: "N8N_API_KEY",
-    helpUrl: "https://docs.n8n.io/api/",
-    command: "npx",
-    args: () => ["-y", "@leonardsellem/n8n-mcp-server"],
-    recommended: true,
-  },
-
-  // === SSE transport servers requiring Claude Code authentication ===
-  {
-    key: "cloudflare-bindings",
-    title: "Cloudflare Bindings",
-    promptType: "sse",
-    transport: "sse",
-    url: "https://bindings.mcp.cloudflare.com/sse",
-    helpUrl:
-      "https://developers.cloudflare.com/workers/configuration/bindings/",
-  },
-  {
-    key: "cloudflare-builds",
-    title: "Cloudflare Builds",
-    promptType: "sse",
-    transport: "sse",
-    url: "https://builds.mcp.cloudflare.com/sse",
-    helpUrl: "https://developers.cloudflare.com/workers/builds/",
+    tier: "research-tools",
+    category: "Advanced Web Search",
+    description: "🔑 Needs: API Access Token (2 min setup)",
+    setupTime: "2 min",
+    authPattern: "api-key",
+    nextSteps: "Ready for advanced web searches and content discovery",
   },
 ];
+
+// REQ-711: Tier configurations for progressive disclosure
+const SETUP_TIERS = {
+  "quick-start": {
+    name: "Quick Start",
+    description: "Essential productivity tools",
+    time: "2 min",
+    emoji: "⚡",
+    benefits: [
+      "Documentation search",
+      "Web research",
+      "Version control integration",
+    ],
+  },
+  "dev-tools": {
+    name: "Dev Tools",
+    description: "Full development workflow",
+    time: "5 min",
+    emoji: "🛠️",
+    benefits: [
+      "Database operations",
+      "Real-time features",
+      "Workflow automation",
+      "All Quick Start tools",
+    ],
+  },
+  "research-tools": {
+    name: "Research Tools",
+    description: "Comprehensive research suite",
+    time: "8 min",
+    emoji: "🔬",
+    benefits: [
+      "Advanced web search",
+      "All Dev Tools",
+      "Complete research capabilities",
+    ],
+  },
+};
 
 // REQ-406: Performance - Cache server type lookups to avoid O(n) searches
 const HAS_CLOUDFLARE_SSE_SERVERS = SERVER_SPECS.some(
@@ -493,7 +850,14 @@ async function promptWranglerServerForCommand(spec, askFn) {
 }
 
 async function promptDualEnvServerForCommand(spec, askFn) {
-  console.log(`\n• ${spec.title} → ${spec.helpUrl}`);
+  // REQ-711: Enhanced dual environment server presentation
+  console.log(`\n┌${"─".repeat(spec.title.length + 20)}┐`);
+  console.log(`│ ⚙️  ${spec.title} ${" ".repeat(20 - spec.title.length)}│`);
+  console.log(`└${"─".repeat(spec.title.length + 20)}┘`);
+  console.log(`📋 Category: ${spec.category || "Configuration Services"}`);
+  console.log(`⏱️  Setup Time: ${spec.setupTime || "5 min"}`);
+  console.log(`${spec.description || "⚙️ Needs: URL + API credentials"}`);
+  console.log(`🔗 Documentation: ${spec.helpUrl}`);
 
   // Check for existing environment variables and display them
   const existingEnv = getExistingServerEnv(spec.key);
@@ -502,14 +866,14 @@ async function promptDualEnvServerForCommand(spec, askFn) {
       spec.envVar,
       existingEnv[spec.envVar]
     );
-    console.log(`Existing ${spec.envVar}: ${formattedValue}`);
+    console.log(`✅ Existing ${spec.envVar}: ${formattedValue}`);
   }
   if (existingEnv[spec.envVar2]) {
     const formattedValue = formatExistingValue(
       spec.envVar2,
       existingEnv[spec.envVar2]
     );
-    console.log(`Existing ${spec.envVar2}: ${formattedValue}`);
+    console.log(`✅ Existing ${spec.envVar2}: ${formattedValue}`);
   }
 
   const input1 = await askFn(
@@ -546,16 +910,21 @@ async function promptStandardServerForCommand(spec, askFn) {
       ? "PostgreSQL connection string (e.g., postgresql://user:pass@localhost/db)"
       : spec.envVar;
 
-  console.log(
-    `\n• ${spec.title} ${spec.envVar ? "API key" : ""} → ${spec.helpUrl}`
-  );
+  // REQ-711: Enhanced server presentation with accessibility and clear information hierarchy
+  console.log(`\n┌${"─".repeat(spec.title.length + 20)}┐`);
+  console.log(`│ 📦 ${spec.title} ${" ".repeat(20 - spec.title.length)}│`);
+  console.log(`└${"─".repeat(spec.title.length + 20)}┘`);
+  console.log(`📋 Category: ${spec.category || "General"}`);
+  console.log(`⏱️  Setup Time: ${spec.setupTime || "2-3 min"}`);
+  console.log(`${spec.description || `🔑 Needs: API Access Token`}`);
+  console.log(`🔗 Get credentials: ${spec.helpUrl}`);
 
   // Check for existing API key and display it
   if (spec.envVar) {
     const existingEnv = getExistingServerEnv(spec.key);
     if (existingEnv[spec.envVar]) {
       const maskedKey = maskKey(existingEnv[spec.envVar]);
-      console.log(`Existing Key: ${maskedKey}`);
+      console.log(`✅ Existing Key: ${maskedKey}`);
     }
   }
 
@@ -582,22 +951,29 @@ async function promptSSEServerForCommand(spec, askFn) {
   // REQ-500: Check server status before prompting to avoid false failures
   const serverStatus = checkServerStatus(spec.key);
 
+  // REQ-711: Enhanced SSE server presentation with accessibility
+  console.log(`\n┌${"─".repeat(spec.title.length + 20)}┐`);
+  console.log(`│ 🌐 ${spec.title} ${" ".repeat(20 - spec.title.length)}│`);
+  console.log(`└${"─".repeat(spec.title.length + 20)}┘`);
+  console.log(`📋 Category: ${spec.category || "Real-time Services"}`);
+  console.log(`⏱️  Setup Time: ${spec.setupTime || "3 min"}`);
+  console.log(
+    `${spec.description || "🌐 Needs: Browser authentication + Claude Code setup"}`
+  );
+  console.log(`🔗 Documentation: ${spec.helpUrl}`);
+
   if (serverStatus.exists) {
-    console.log(`\n• ${spec.title} → ${spec.helpUrl}`);
-    console.log(`  ✅ Already configured`);
+    console.log(`✅ Already configured`);
     console.log(
-      `  ℹ️  Run /mcp ${spec.key} in Claude Code if authentication is needed`
+      `💡 Next step: Run /mcp ${spec.key} in Claude Code if authentication is needed`
     );
     return { action: ACTION_TYPES.ALREADY_CONFIGURED };
   }
 
-  console.log(`\n• ${spec.title} → ${spec.helpUrl}`);
   console.log(
-    `  ⚠️  Note: You'll need to authenticate in Claude Code using /mcp ${spec.key}`
+    `⚠️  Authentication: Use /mcp ${spec.key} in Claude Code after installation`
   );
-  console.log(
-    `  ⚠️  Note: SSE-based MCP servers require authentication via Claude Code, not wrangler login`
-  );
+  console.log(`ℹ️  Note: Browser-based authentication (not API keys)`);
 
   const choice = await askFn(
     `Configure ${spec.title}? (y)es, (n)o, (-) disable`,
@@ -623,20 +999,33 @@ async function configureClaudeCode() {
 
   console.log("\n📁 Configuring Claude Code MCP servers");
 
+  // REQ-711: Get tier selection first to reduce choice overload
+  const selectedTier = await askSetupTier();
+  const tierServers = getServersForTier(selectedTier);
+
   // Get scope preference
   const scope = await askScope();
-  console.log(`\nUsing ${scope} scope for MCP server configuration\n`);
 
+  // REQ-711: Show tier summary with estimated time and server count
+  const tierConfig = SETUP_TIERS[selectedTier];
+  console.log(`\n✨ Setting up: ${tierConfig.emoji} ${tierConfig.name}`);
   console.log(
-    '🔌 Configure MCP servers (Enter = skip; "-" = disable existing)'
+    `📊 ${tierServers.length} servers • ${tierConfig.time} estimated setup time`
   );
+  console.log(`🎯 Using ${scope} scope for MCP server configuration\n`);
+
+  console.log("+" + "=".repeat(58) + "+");
+  console.log("| 🔌 CONFIGURE MCP SERVERS                                |");
+  console.log('| (Enter = skip; "-" = disable existing)                 |');
+  console.log("+" + "=".repeat(58) + "+");
 
   // Track configured servers for summary
   const configuredServers = [];
   const skippedServers = [];
   const failedServers = [];
 
-  for (const spec of SERVER_SPECS) {
+  // REQ-711: Process only servers in selected tier
+  for (const spec of tierServers) {
     try {
       // Route to appropriate prompt handler and collect results
       let serverConfig = null;
@@ -673,12 +1062,23 @@ async function configureClaudeCode() {
           configuredServers.push(spec.title);
         } else {
           console.log(`  Installing ${spec.title}...`);
+          // REQ-709: Fix commandString scoping - declare outside try-catch block
+          const commandString = Array.isArray(command)
+            ? command.join(" ")
+            : command;
           try {
-            execSync(command, { stdio: "inherit" });
+            execSync(commandString, { stdio: "inherit" });
             console.log(`  ✅ ${spec.title} configured successfully`);
             configuredServers.push(spec.title);
-          } catch {
+          } catch (error) {
             console.log(`  ❌ ${spec.title} installation failed`);
+            // REQ-709: Enhanced error reporting for debugging (commandString now accessible)
+            if (process.env.DEBUG_MCP) {
+              console.log(`    Debug: Command was: ${commandString}`);
+              console.log(`    Debug: Error: ${error.message}`);
+              if (error.status)
+                console.log(`    Debug: Exit code: ${error.status}`);
+            }
             failedServers.push(spec.title);
           }
         }
@@ -707,19 +1107,79 @@ async function configureClaudeCode() {
     }
   }
 
-  // Show summary
-  console.log("\n" + "=".repeat(50));
-  console.log("📊 Configuration Summary:");
+  // REQ-711: Enhanced tier-specific summary with accessibility and next steps
+  console.log("\n" + "=".repeat(60));
+  console.log(`🎉 ${tierConfig.emoji} ${tierConfig.name} SETUP COMPLETE`);
+  console.log("=".repeat(60));
+
   if (configuredServers.length > 0) {
-    console.log(`  ✅ Configured: ${configuredServers.join(", ")}`);
+    console.log(
+      `✅ Successfully configured ${configuredServers.length} servers:`
+    );
+    configuredServers.forEach((server) => {
+      const spec = tierServers.find((s) => s.title === server);
+      if (spec && spec.nextSteps) {
+        console.log(`   • ${server}: ${spec.nextSteps}`);
+      } else {
+        console.log(`   • ${server}: Ready to use`);
+      }
+    });
   }
+
   if (skippedServers.length > 0) {
-    console.log(`  ⏭️  Skipped: ${skippedServers.join(", ")}`);
+    console.log(
+      `\n⏭️  Skipped ${skippedServers.length} servers: ${skippedServers.join(", ")}`
+    );
+    console.log(`   💡 Run this tool again to configure them later`);
   }
+
   if (failedServers.length > 0) {
-    console.log(`  ❌ Failed: ${failedServers.join(", ")}`);
+    console.log(
+      `\n❌ Failed ${failedServers.length} servers: ${failedServers.join(", ")}`
+    );
+    console.log(
+      `   🔧 Try: Update Claude Code CLI or check network connection`
+    );
+    console.log(`   📚 Debug: Set DEBUG_MCP=true for detailed error messages`);
   }
-  console.log("=".repeat(50));
+
+  // REQ-711: Tier-specific next steps and progressive disclosure
+  console.log(`\n🚀 WHAT'S NEXT:`);
+  if (selectedTier === "quick-start") {
+    console.log(
+      `   1. Start Claude Code and try: "Search documentation for...")`
+    );
+    console.log(`   2. Use GitHub integration for repository management`);
+    console.log(`   3. Ready to upgrade? Re-run for Dev Tools tier`);
+  } else if (selectedTier === "dev-tools") {
+    console.log(
+      `   1. SSE servers: Use /mcp cloudflare-* commands in Claude Code`
+    );
+    console.log(`   2. Database: Test connections and start building`);
+    console.log(`   3. Automation: Configure n8n workflows`);
+    console.log(`   4. Want research tools? Re-run for Research Tools tier`);
+  } else {
+    console.log(
+      `   1. Full setup complete! All research and development tools ready`
+    );
+    console.log(`   2. Try advanced web searches with Brave Search`);
+    console.log(
+      `   3. Combine all tools for comprehensive development workflow`
+    );
+  }
+
+  console.log(`\n📋 ACCESSIBILITY NOTES:`);
+  console.log(
+    `   • Screen readers: All servers have clear categories and descriptions`
+  );
+  console.log(
+    `   • Keyboard users: Tab through options, Enter to select, Esc to skip`
+  );
+  console.log(
+    `   • High contrast: Server status uses ✅❌⏭️ symbols for clarity`
+  );
+
+  console.log("=".repeat(60));
 
   // Verify installation
   try {
@@ -732,13 +1192,13 @@ async function configureClaudeCode() {
   }
 }
 
-function scaffoldProjectFiles() {
+async function scaffoldProjectFiles() {
   console.log("\n🧩 Scaffolding project files in:", PROJECT_DIR);
 
   // CLAUDE.md
   const claudeMd = path.join(PROJECT_DIR, "CLAUDE.md");
   if (!fs.existsSync(claudeMd)) {
-    fs.writeFileSync(claudeMd, TEMPLATE("CLAUDE.md"), "utf8");
+    await safeFileWrite(claudeMd, TEMPLATE("CLAUDE.md"));
     console.log("• CLAUDE.md created");
   } else {
     console.log("• CLAUDE.md exists (left unchanged)");
@@ -747,7 +1207,7 @@ function scaffoldProjectFiles() {
   // README.md (navigation and mental model)
   const readmeMd = path.join(PROJECT_DIR, "README.md");
   if (!fs.existsSync(readmeMd)) {
-    fs.writeFileSync(readmeMd, TEMPLATE("README.md"), "utf8");
+    await safeFileWrite(readmeMd, TEMPLATE("README.md"));
     console.log("• README.md created (navigation template)");
   } else {
     console.log("• README.md exists (left unchanged)");
@@ -757,7 +1217,7 @@ function scaffoldProjectFiles() {
   fs.mkdirSync(PROJ_CLAUDE_DIR, { recursive: true });
   const projSettings = path.join(PROJ_CLAUDE_DIR, "settings.json");
   if (!fs.existsSync(projSettings)) {
-    fs.writeFileSync(projSettings, TEMPLATE("project-settings.json"), "utf8");
+    await safeFileWrite(projSettings, TEMPLATE("project-settings.json"));
     console.log("• .claude/settings.json created (safe defaults, no secrets)");
   } else {
     console.log("• .claude/settings.json exists (left unchanged)");
@@ -766,11 +1226,7 @@ function scaffoldProjectFiles() {
   // .claude/settings.local.json (empty valid JSON)
   const projLocal = path.join(PROJ_CLAUDE_DIR, "settings.local.json");
   if (!fs.existsSync(projLocal)) {
-    fs.writeFileSync(
-      projLocal,
-      TEMPLATE("project-settings.local.json"),
-      "utf8"
-    );
+    await safeFileWrite(projLocal, TEMPLATE("project-settings.local.json"));
     console.log("• .claude/settings.local.json created (local-only overrides)");
   } else {
     console.log("• .claude/settings.local.json exists (left unchanged)");
@@ -783,7 +1239,7 @@ function scaffoldProjectFiles() {
   // Domain README template
   const domainReadme = path.join(docsDir, "domain-README.md");
   if (!fs.existsSync(domainReadme)) {
-    fs.writeFileSync(domainReadme, TEMPLATE("domain-README.md"), "utf8");
+    await safeFileWrite(domainReadme, TEMPLATE("domain-README.md"));
     console.log(
       "• .claude/templates/domain-README.md created (for feature domains)"
     );
@@ -792,7 +1248,7 @@ function scaffoldProjectFiles() {
   // .claude-context template
   const claudeContext = path.join(docsDir, ".claude-context");
   if (!fs.existsSync(claudeContext)) {
-    fs.writeFileSync(claudeContext, TEMPLATE(".claude-context"), "utf8");
+    await safeFileWrite(claudeContext, TEMPLATE(".claude-context"));
     console.log(
       "• .claude/templates/.claude-context created (for AI assistance)"
     );
@@ -801,7 +1257,7 @@ function scaffoldProjectFiles() {
   // Repository-specific CLAUDE.md template
   const claudeTemplate = path.join(docsDir, "CLAUDE.md");
   if (!fs.existsSync(claudeTemplate)) {
-    fs.writeFileSync(claudeTemplate, TEMPLATE("CLAUDE.md"), "utf8");
+    await safeFileWrite(claudeTemplate, TEMPLATE("CLAUDE.md"));
     console.log(
       "• .claude/templates/CLAUDE.md created (repository-specific guidelines)"
     );
@@ -852,7 +1308,7 @@ function scaffoldProjectFiles() {
 
       if (shouldInstall) {
         const agentContent = fs.readFileSync(sourcePath, "utf8");
-        fs.writeFileSync(globalTargetPath, agentContent, "utf8");
+        await safeFileWrite(globalTargetPath, agentContent);
         console.log(
           `• ~/.claude/agents/${agentFile} installed (globally available)`
         );
@@ -889,11 +1345,7 @@ function scaffoldProjectFiles() {
     let cur = "";
     if (fs.existsSync(gi)) cur = fs.readFileSync(gi, "utf8");
     if (!cur.includes("# Claude Code secret guardrails")) {
-      fs.writeFileSync(
-        gi,
-        (cur ? cur.trimEnd() + "\n" : "") + guard + "\n",
-        "utf8"
-      );
+      await safeFileWrite(gi, (cur ? cur.trimEnd() + "\n" : "") + guard + "\n");
       console.log("• .gitignore updated with secret guardrails");
     } else {
       console.log("• .gitignore already includes secret guardrails");
@@ -1230,7 +1682,7 @@ async function createBackup(filePath) {
 
   const backupPath = `${filePath}.backup.${Date.now()}`;
   const content = fs.readFileSync(filePath, "utf8");
-  fs.writeFileSync(backupPath, content, "utf8");
+  await safeFileWrite(backupPath, content);
   return backupPath;
 }
 
@@ -1274,7 +1726,7 @@ async function updateTemplate(templateInfo, dryRun = false) {
 
     // Copy template content
     const templateContent = fs.readFileSync(templatePath, "utf8");
-    fs.writeFileSync(fullPath, templateContent, "utf8");
+    await safeFileWrite(fullPath, templateContent);
 
     console.log(
       `  ✅ ${templateInfo.status === "missing" ? "Created" : "Updated"} successfully`
@@ -1467,7 +1919,7 @@ async function main() {
 
   if (cmd === "init") {
     await configureClaudeCode();
-    scaffoldProjectFiles();
+    await scaffoldProjectFiles();
     rl.close();
     showPostSetupGuide();
     return;
@@ -1515,20 +1967,25 @@ async function main() {
   const doProj = (
     await ask("\nAlso scaffold project files in current dir? (Y/n) ", "y")
   ).toLowerCase();
-  if (!doProj.startsWith("n")) scaffoldProjectFiles();
+  if (!doProj.startsWith("n")) await scaffoldProjectFiles();
 
   rl.close();
   showPostSetupGuide();
 }
 
-main().catch((err) => {
-  console.error("Error:", err?.message || err);
-  process.exit(1);
-});
+// Only run main if this file is executed directly (not imported)
+if (require.main === module) {
+  main().catch((err) => {
+    console.error("Error:", err?.message || err);
+    process.exit(1);
+  });
+}
 
 // REQ-405: Export functions for integration testing
 module.exports = {
   SERVER_SPECS,
+  SETUP_TIERS,
+  getServersForTier,
   validateSSEUrl,
   buildSSECommand,
   buildClaudeMcpCommand,

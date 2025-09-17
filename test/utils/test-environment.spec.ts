@@ -17,7 +17,9 @@ try {
 } catch (error) {
   // Function doesn't exist yet - this is expected for TDD
   createTestEnvironment = async () => {
-    throw new Error("createTestEnvironment function not implemented yet - REQ-500");
+    throw new Error(
+      "createTestEnvironment function not implemented yet - REQ-500"
+    );
   };
 }
 
@@ -53,8 +55,15 @@ describe("REQ-500 — Test Environment Utilities", () => {
     const stats = await fs.stat(testEnv.tempDir);
     expect(stats.isDirectory()).toBe(true);
 
-    // Directory should be in system temp location
-    expect(testEnv.tempDir).toContain("tmp");
+    // Directory should be in system temp location (cross-platform)
+    const osType = process.platform;
+    if (osType === "darwin") {
+      expect(testEnv.tempDir).toContain("/var/folders"); // macOS temp location
+    } else if (osType === "win32") {
+      expect(testEnv.tempDir.toLowerCase()).toContain("temp"); // Windows temp location
+    } else {
+      expect(testEnv.tempDir).toContain("tmp"); // Linux/Unix temp location
+    }
   });
 
   test("REQ-500 — createFile creates files with correct content in temp directory", async () => {

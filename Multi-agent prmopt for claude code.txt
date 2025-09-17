@@ -1,0 +1,72 @@
+# Drop this directly into Claude Code:
+
+/Use 6 parallel tasks to conduct a comprehensive project review. Each task should run a specialized review agent and compile findings:
+
+Task 1 (UX Flow Review): As the ux-flow-reviewer agent, audit the entire user journey from authentication through all features. Check for: dead ends, confusing flows, missing feedback, error handling UX, loading states, mobile responsiveness. Test actual user paths against requirements in requirements/current.md.
+
+Task 2 (Performance & Engineering Review): As the PE-Reviewer agent, analyze code quality per CLAUDE.md sections 5-6. Check: function complexity, test coverage gaps, TDD compliance (all tests reference REQ-IDs?), type safety violations, abstraction leaks, missing error boundaries. Cross-reference with requirements.lock.md for coverage.
+
+Task 3 (Security Audit): As the security-reviewer agent, scan for vulnerabilities in: auth flows, RLS policies, API endpoints, input validation, XSS vectors, SQL injection risks, exposed secrets, unsafe type coercions, template injections. Check Supabase RLS policies and n8n webhook security.
+
+Task 4 (Test Coverage Analysis): As the test-writer agent, identify: untested code paths, missing edge cases, integration test gaps, requirements without corresponding tests (cross-check REQ-IDs), brittle mocks that should be integration tests, missing property-based tests for algorithms.
+
+Task 5 (Infrastructure & Scalability): Audit: database indexes and query performance, Qdrant vector search optimization, n8n workflow error handling, Supabase connection pooling, missing monitoring/observability, deployment readiness, environment variable management.
+
+Task 6 (CLI Package Audit): As the cli-auditor agent, review the npm package for CLI best practices and installation issues.
+
+After all tasks complete, synthesize findings into a REVIEW-REPORT.md with this exact structure:
+
+# Project Review Report
+
+## Executive Summary
+[2-3 sentences on overall health]
+
+## P0 Issues (Critical - Block Launch)
+### Issue: [Title]
+- Component: [frontend/backend/infra/security]
+- Size: [S/M/L/XL]
+- Impact: [User-facing description]
+- Technical: [Root cause]
+- Fix Plan:
+  1. [Specific step]
+  2. [Specific step]
+- Estimated Time: [hours/days]
+- Dependencies: [what must be done first]
+
+## P1 Issues (High - Fix Before Launch)
+[Same format as P0]
+
+## P2 Issues (Medium - Post-Launch Week 1)
+### Issue: [Title]
+- Component: [area]
+- Size: [S/M/L/XL]
+- Impact: [brief description]
+[No fix plan - just identification]
+
+## P3 Issues (Low - Backlog)
+[Same as P2 format]
+
+## Test Coverage Gaps
+- Requirements missing tests: [REQ-IDs]
+- Uncovered critical paths: [list]
+- Coverage percentage: [if available]
+
+## Security Findings
+[Summarized from Task 3]
+
+## Performance Bottlenecks
+[Key findings from Task 5]
+
+## Positive Findings
+[What's working well - important for morale]
+
+## Recommended Immediate Actions
+1. [First thing to fix]
+2. [Second thing to fix]
+3. [Third thing to fix]
+
+Use these sizing definitions:
+- S: < 2 hours
+- M: 2-8 hours  
+- L: 1-3 days
+- XL: 3+ days or requires architecture changes

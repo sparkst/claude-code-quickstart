@@ -1770,3 +1770,89 @@ describe("REQ-602 — Already Configured Action Flow", () => {
     expect(cliContent).toMatch(/configuredServers\.push\(spec\.title\)/);
   });
 });
+
+// REQ-709: Critical P0 Bug Fix - commandString variable scoping issue
+describe("REQ-709 — commandString Variable Scoping Bug Fix", () => {
+  test("REQ-709 — commandString variable must be accessible in both debug and non-debug paths", () => {
+    const fs = require("fs");
+    const cliContent = fs.readFileSync("bin/cli.js", "utf8");
+
+    // Find the MCP server installation section
+    const installationSection = cliContent.match(
+      /Installing[\s\S]*?catch \(error\)[\s\S]*?DEBUG_MCP[\s\S]*?\}/
+    );
+    expect(installationSection).toBeTruthy();
+
+    const installationCode = installationSection[0];
+
+    // commandString should NOT be declared inside try block anymore
+    expect(installationCode).not.toMatch(/try\s*\{[\s\S]*?const commandString/);
+
+    // commandString should be accessible in the catch block for debug logging
+    expect(installationCode).toMatch(/Debug: Command was: \$\{commandString\}/);
+  });
+
+  test("REQ-709 — commandString should be declared outside try-catch block", () => {
+    const fs = require("fs");
+    const cliContent = fs.readFileSync("bin/cli.js", "utf8");
+
+    // After fix, commandString should be declared before the try block
+    // This test will FAIL until the variable is moved outside the try block
+    const properScopeRegex =
+      /const commandString[\s\S]*?try\s*\{[\s\S]*?execSync\(commandString[\s\S]*?\}\s*catch[\s\S]*?commandString/;
+    expect(cliContent).toMatch(properScopeRegex);
+  });
+
+  test("REQ-709 — debug error logging should access commandString without ReferenceError", () => {
+    const fs = require("fs");
+    const cliContent = fs.readFileSync("bin/cli.js", "utf8");
+
+    // The debug section should be able to access commandString
+    // This will FAIL because currently commandString is undefined in catch block
+    const debugSectionRegex =
+      /if\s*\(\s*process\.env\.DEBUG_MCP\s*\)\s*\{[\s\S]*?Debug: Command was: \$\{commandString\}/;
+
+    // Find the debug section and ensure commandString is accessible
+    const debugMatch = cliContent.match(debugSectionRegex);
+    expect(debugMatch).toBeTruthy();
+
+    // Verify that commandString is properly declared before this usage
+    const beforeDebugContent = cliContent.substring(0, debugMatch.index);
+    expect(beforeDebugContent).toMatch(/(?:const|let|var)\s+commandString\s*=/);
+  });
+
+  test("REQ-709 — array-to-string conversion should work in all execution paths", () => {
+    const fs = require("fs");
+    const cliContent = fs.readFileSync("bin/cli.js", "utf8");
+
+    // The conversion logic should exist and be accessible
+    // This tests the actual fix: Array.isArray(command) ? command.join(" ") : command
+    expect(cliContent).toContain(
+      'Array.isArray(command) ? command.join(" ") : command'
+    );
+
+    // And commandString should be available for both execSync and debug logging
+    const conversionRegex =
+      /const commandString = Array\.isArray\(command\) \? command\.join\(" "\) : command;/;
+    expect(cliContent).toMatch(conversionRegex);
+  });
+
+  test("REQ-709 — execSync should receive properly formatted string parameter", () => {
+    const fs = require("fs");
+    const cliContent = fs.readFileSync("bin/cli.js", "utf8");
+
+    // Find the MCP server installation section specifically
+    const installationSection = cliContent.match(
+      /Installing[\s\S]*?try[\s\S]*?execSync\([^)]*\)[\s\S]*?catch/
+    );
+    expect(installationSection).toBeTruthy();
+
+    const installationCode = installationSection[0];
+
+    // execSync should be called with commandString (not command array) in installation section
+    expect(installationCode).toContain("execSync(commandString");
+
+    // Should not pass command array directly in installation section
+    expect(installationCode).not.toMatch(/execSync\(command[^S]/);
+  });
+});
